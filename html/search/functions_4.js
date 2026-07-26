@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['operator_3d_0',['operator=',['../class_lava_v_k_1_1_device.html#aa468b16722dd0e41b62499f30ed45de8',1,'LavaVK::Device::operator=()'],['../class_lava_v_k_1_1_instance.html#a9ca4516fc9586b70508556d9c96b74e0',1,'LavaVK::Instance::operator=()']]]
+  ['getqueue_0',['getQueue',['../class_lava_v_k_1_1_device.html#a19246dc1b26956fff4638de045c2ba47',1,'LavaVK::Device']]],
+  ['getqueuefamily_1',['getQueueFamily',['../class_lava_v_k_1_1_device.html#a6b6c18bc1f012ff319c9e4a196449361',1,'LavaVK::Device']]],
+  ['graphicsqueue_2',['graphicsQueue',['../class_lava_v_k_1_1_device.html#a44aba55d3e77dbd4b3255e05d2ade759',1,'LavaVK::Device']]]
 ];

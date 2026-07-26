@@ -1,111 +1,169 @@
 #include "../include/LavaVK/Device.h"
 #include "../include/LavaVK/Instance.h"
+#include "../include/LavaVK/Queue.h"
 
 #include <stdexcept>
 #include <vector>
+#include <utility>
+#include <set>
 
 namespace LavaVK
 {
 
 namespace
 {
+    GPUType convertType(VkPhysicalDeviceType type)
+    {
+        switch (type)
+        {
+            case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+                return GPUType::Discrete;
 
-uint32_t findGraphicsQueueFamily(VkPhysicalDevice gpu)
+            case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+                return GPUType::Integrated;
+
+            case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+                return GPUType::Virtual;
+
+            case VK_PHYSICAL_DEVICE_TYPE_CPU:
+                return GPUType::CPU;
+
+            default:
+                return GPUType::Other;
+        }
+    }
+}
+
+GPUHardware::GPUHardware(VkPhysicalDevice device)
+    : m_device(device)
+{
+    vkGetPhysicalDeviceProperties(m_device, &m_properties);
+}
+
+std::vector<GPUHardware> GPUHardware::enumerate(const Instance& instance)
 {
     uint32_t count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, nullptr);
+    vkEnumeratePhysicalDevices(instance.native(), &count, nullptr);
+
+    if (count == 0)
+        throw std::runtime_error("[LavaVK ERROR] No Vulkan compatible GPUs found.");
+
+    std::vector<VkPhysicalDevice> physicalDevices(count);
+    vkEnumeratePhysicalDevices(instance.native(), &count, physicalDevices.data());
+
+    std::vector<GPUHardware> result;
+    result.reserve(count);
+
+    for (auto device : physicalDevices)
+        result.emplace_back(device);
+
+    return result;
+}
+
+const std::string& GPUHardware::name() const
+{
+    static std::string name;
+    name = m_properties.deviceName;
+    return name;
+}
+
+GPUType GPUHardware::type() const
+{
+    return convertType(m_properties.deviceType);
+}
+
+uint32_t GPUHardware::apiVersion() const
+{
+    return m_properties.apiVersion;
+}
+
+uint32_t GPUHardware::driverVersion() const
+{
+    return m_properties.driverVersion;
+}
+
+uint32_t GPUHardware::vendorID() const
+{
+    return m_properties.vendorID;
+}
+
+uint32_t GPUHardware::deviceID() const
+{
+    return m_properties.deviceID;
+}
+
+uint32_t GPUHardware::findQueueFamily(QueueType type) const
+{
+    uint32_t count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(m_device, &count, nullptr);
 
     std::vector<VkQueueFamilyProperties> families(count);
-    vkGetPhysicalDeviceQueueFamilyProperties(gpu, &count, families.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(m_device, &count, families.data());
 
-    for (uint32_t i = 0; i < count; i++)
+    const VkQueueFlags required = static_cast<VkQueueFlags>(type);
+
+    for (uint32_t i = 0; i < count; ++i)
     {
-        if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        if ((families[i].queueFlags & required) == required)
             return i;
     }
 
-    throw std::runtime_error("[LavaVK ERROR] Failed to find a graphics queue family.");
+    throw std::runtime_error("[LavaVK ERROR] Graphics queue not found.");
 }
 
-VkPhysicalDevice chooseDevice(const GPUDeviceCreateInfo& info, const Instance& instance)
+VkPhysicalDevice GPUHardware::native() const
 {
-    // Enumerate GPUs
-    uint32_t gpuCount = 0;
-    vkEnumeratePhysicalDevices(instance.native(), &gpuCount, nullptr);
+    return m_device;
+}
 
-    if (gpuCount == 0)
-        throw std::runtime_error("[LavaVK ERROR] No Vulkan-compatible GPU found.");
-    std::vector<VkPhysicalDevice> devices(gpuCount);
+Device::Device(const GPUHardware& gpu_hardware, const std::vector<QueueType>& requestedQueues)
+{
+    m_physicalDevice = gpu_hardware.native();
 
-    vkEnumeratePhysicalDevices(instance.native(), &gpuCount, devices.data());
-    if (info.deviceIndex != UINT32_MAX)
+    // 1. Resolve Queue Families and Deduplicate Unique Family Indices
+    std::set<uint32_t> uniqueFamilies;
+
+    for (auto type : requestedQueues)
     {
-        return devices[info.deviceIndex];
+        uint32_t family = gpu_hardware.findQueueFamily(type);
+        m_queueFamilies[type] = family;
+        uniqueFamilies.insert(family);
     }
 
-
-    if (info.preferDiscreteGPU)
-    {
-        for (auto gpu : devices)
-        {
-            VkPhysicalDeviceProperties props{};
-            vkGetPhysicalDeviceProperties(gpu, &props);
-            if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-                return gpu;
-        }
-    }
-
-
-    return devices.front();
-}
-
-}
-
-Device::Device(const GPUDeviceCreateInfo& GPUinfo, const Instance& instance)
-{
-    m_physicalDevice = chooseDevice(GPUinfo, instance);
-
-    // Find graphics queue
-    m_graphicsFamily = findGraphicsQueueFamily(m_physicalDevice);
-
+    // 2. Prepare Queue Create Infos
     float priority = 1.0f;
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 
-    VkDeviceQueueCreateInfo queueInfo{};
-    queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueInfo.queueFamilyIndex = m_graphicsFamily;
-    queueInfo.queueCount = 1;
-    queueInfo.pQueuePriorities = &priority;
+    for (uint32_t familyIndex : uniqueFamilies)
+    {
+        VkDeviceQueueCreateInfo queueInfo{};
+        queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueInfo.queueFamilyIndex = familyIndex;
+        queueInfo.queueCount = 1;
+        queueInfo.pQueuePriorities = &priority;
+        queueCreateInfos.push_back(queueInfo);
+    }
 
-    #ifndef NDEBUG
+    // 3. Create Logical Device
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.queueCreateInfoCount = 1;
-    createInfo.pQueueCreateInfos = &queueInfo;
+    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+    createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-    // Device extensions (we'll need this for swapchains)
-    const char* extensions[] =
-    {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
-
+    const char* extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
     createInfo.enabledExtensionCount = 1;
     createInfo.ppEnabledExtensionNames = extensions;
-    #endif
 
-    if (vkCreateDevice(
-        m_physicalDevice,
-        &createInfo,
-        nullptr,
-        &m_device) != VK_SUCCESS)
+    if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to create logical device.");
     }
 
-    vkGetDeviceQueue(
-        m_device,
-        m_graphicsFamily,
-        0,
-        &m_graphicsQueue);
+    // 4. Instantiate Queue Objects
+    for (auto type : requestedQueues)
+    {
+        m_queues[type] = Queue(*this, m_queueFamilies[type]);
+    }
 }
 
 Device::~Device()
@@ -115,16 +173,13 @@ Device::~Device()
 }
 
 Device::Device(Device&& other) noexcept
+    : m_physicalDevice(other.m_physicalDevice),
+      m_device(other.m_device),
+      m_queues(std::move(other.m_queues)),
+      m_queueFamilies(std::move(other.m_queueFamilies))
 {
-    m_physicalDevice = other.m_physicalDevice;
-    m_device = other.m_device;
-    m_graphicsQueue = other.m_graphicsQueue;
-    m_graphicsFamily = other.m_graphicsFamily;
-
     other.m_physicalDevice = VK_NULL_HANDLE;
     other.m_device = VK_NULL_HANDLE;
-    other.m_graphicsQueue = VK_NULL_HANDLE;
-    other.m_graphicsFamily = 0;
 }
 
 Device& Device::operator=(Device&& other) noexcept
@@ -136,16 +191,37 @@ Device& Device::operator=(Device&& other) noexcept
 
         m_physicalDevice = other.m_physicalDevice;
         m_device = other.m_device;
-        m_graphicsQueue = other.m_graphicsQueue;
-        m_graphicsFamily = other.m_graphicsFamily;
+        m_queues = std::move(other.m_queues);
+        m_queueFamilies = std::move(other.m_queueFamilies);
 
         other.m_physicalDevice = VK_NULL_HANDLE;
         other.m_device = VK_NULL_HANDLE;
-        other.m_graphicsQueue = VK_NULL_HANDLE;
-        other.m_graphicsFamily = 0;
     }
-
     return *this;
+}
+
+const Queue& Device::getQueue(QueueType type) const
+{
+    auto it = m_queues.find(type);
+    if (it == m_queues.end())
+        throw std::runtime_error("Requested queue type not initialized on this device.");
+    return it->second;
+}
+
+Queue& Device::getQueue(QueueType type)
+{
+    auto it = m_queues.find(type);
+    if (it == m_queues.end())
+        throw std::runtime_error("Requested queue type not initialized on this device.");
+    return it->second;
+}
+
+uint32_t Device::getQueueFamily(QueueType type) const
+{
+    auto it = m_queueFamilies.find(type);
+    if (it == m_queueFamilies.end())
+        throw std::runtime_error("Requested queue family not initialized on this device.");
+    return it->second;
 }
 
 } // namespace LavaVK

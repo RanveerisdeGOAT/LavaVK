@@ -8,5 +8,7 @@
 #include "Instance.h"
 #include "Device.h"
 #include "GLFW.h"
+#include "Fence.h"
+#include "Queue.h"
 
 #endif //LAVAVK_LAVAVK_H

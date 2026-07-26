@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['native_0',['native',['../class_lava_v_k_1_1_device.html#a03cd2d1f5b5f977e4df4b4ed086494b9',1,'LavaVK::Device::native()'],['../class_lava_v_k_1_1_instance.html#a892e9074597f00119eaf2a1e95b3ee3d',1,'LavaVK::Instance::native()']]]
+  ['family_0',['family',['../class_lava_v_k_1_1_queue.html#a6f301c9ff710c86fd0efb9245f177194',1,'LavaVK::Queue']]],
+  ['fence_1',['Fence',['../class_lava_v_k_1_1_fence.html#a7c26fe31f797cb16e1deee9d089e5838',1,'LavaVK::Fence']]],
+  ['findqueuefamily_2',['findQueueFamily',['../class_lava_v_k_1_1_g_p_u_hardware.html#aef01f0c39eff0863517b95d0c83a2ff8',1,'LavaVK::GPUHardware']]]
 ];

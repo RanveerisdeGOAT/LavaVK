@@ -3,45 +3,98 @@
 
 #include <vulkan/vulkan.h>
 #include <cstdint>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include "Queue.h"
 
 namespace LavaVK
 {
+    enum class QueueType : uint32_t;
     class Instance;
 
     /**
      * @brief Configuration options for selecting and initializing a physical/logical Vulkan GPU device.
      */
-    struct GPUDeviceCreateInfo
+    enum class GPUType
     {
-        /** * @brief Index of a specific GPU in the system to use.
-         * Set to `UINT32_MAX` (default) to let LavaVK automatically select an optimal GPU.
-         */
-        uint32_t deviceIndex = UINT32_MAX;
+        Other,
+        Integrated,
+        Discrete,
+        Virtual,
+        CPU
+    };
 
-        /** * @brief Prefers a discrete GPU (`VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU`) over integrated graphics
-         * when `deviceIndex` is not specified.
+    class GPUHardware
+    {
+    public:
+        GPUHardware() = default;
+
+        explicit GPUHardware(VkPhysicalDevice device);
+
+        /**
+         * @brief Returns every Vulkan compatible GPU in the system.
          */
-        bool preferDiscreteGPU = true;
+        static std::vector<GPUHardware> enumerate(const Instance& instance);
+
+        /**
+         * @brief Returns the GPU name.
+         */
+        [[nodiscard]] const std::string& name() const;
+
+        /**
+         * @brief Returns the GPU type.
+         */
+        [[nodiscard]] GPUType type() const;
+
+        /**
+         * @brief Returns the Vulkan API version.
+         */
+        [[nodiscard]] uint32_t apiVersion() const;
+
+        /**
+         * @brief Returns the Vulkan driver version.
+         */
+        [[nodiscard]] uint32_t driverVersion() const;
+
+        /**
+         * @brief Returns the Vulkan vendor ID.
+         */
+        [[nodiscard]] uint32_t vendorID() const;
+
+        /**
+         * @brief Returns the Vulkan device ID.
+         */
+        [[nodiscard]] uint32_t deviceID() const;
+
+        /**
+         * @brief Finds a queue family supporting the requested operations.
+         */
+        [[nodiscard]] uint32_t findQueueFamily(QueueType type) const;
+
+        /**
+         * @brief Returns the underlying Vulkan handle.
+         */
+        [[nodiscard]] VkPhysicalDevice native() const;
+
+    private:
+        friend class Device;
+
+        VkPhysicalDevice m_device = VK_NULL_HANDLE;
+        VkPhysicalDeviceProperties m_properties{};
     };
 
     /**
      * @brief Manages the Vulkan physical device selection, logical device instantiation (`VkDevice`),
      * and graphics queue retrieval.
-     *
-     * Implements RAII semantics for automated lifecycle management of the logical device. Move operations
-     * are supported, but copy operations are disabled to prevent duplicate destruction.
      */
     class Device
     {
     public:
         /**
          * @brief Constructs a LavaVK Device, selecting a physical GPU and creating a logical device.
-         * * @param info Configuration structure specifying GPU selection strategy.
-         * @param instance Valid reference to the parent LavaVK Instance.
-         * * @throw std::runtime_error Thrown if no physical device is found, if queue selection fails,
-         * or if logical device creation fails.
          */
-        explicit Device(const GPUDeviceCreateInfo& info, const Instance& instance);
+        explicit Device(const GPUHardware& gpu_hardware, const std::vector<QueueType>& requestedQueues);
 
         /**
          * @brief Destructor. Destroys the managed `VkDevice` if valid.
@@ -56,69 +109,47 @@ namespace LavaVK
 
         /**
          * @brief Move constructor. Transfers logical device and queue ownership from another `Device`.
-         * @param other The device instance to move from.
          */
         Device(Device&& other) noexcept;
 
         /**
          * @brief Move assignment operator. Destroys current resources and acquires ownership from `other`.
-         * @param other The device instance to move from.
-         * @return Reference to this `Device` instance.
          */
         Device& operator=(Device&& other) noexcept;
 
         /**
          * @brief Gets the native Vulkan logical device handle (`VkDevice`).
-         * @return The underlying `VkDevice` handle.
          */
-        [[nodiscard]]
-        VkDevice native() const
-        {
-            return m_device;
-        }
+        [[nodiscard]] VkDevice native() const { return m_device; }
 
         /**
          * @brief Gets the native Vulkan physical device handle (`VkPhysicalDevice`).
-         * @return The underlying `VkPhysicalDevice` handle.
          */
-        [[nodiscard]]
-        VkPhysicalDevice physical() const
-        {
-            return m_physicalDevice;
-        }
+        [[nodiscard]] VkPhysicalDevice physical() const { return m_physicalDevice; }
 
         /**
-         * @brief Gets the primary graphics queue retrieved during device creation.
-         * @return The underlying `VkQueue` handle.
+         * @brief Gets a specific Queue by QueueType.
          */
-        [[nodiscard]]
-        VkQueue graphicsQueue() const
-        {
-            return m_graphicsQueue;
-        }
+        [[nodiscard]] const Queue& getQueue(QueueType type) const;
+        [[nodiscard]] Queue& getQueue(QueueType type);
 
         /**
-         * @brief Gets the queue family index supporting graphics operations.
-         * @return The queue family index.
+         * @brief Gets queue family index for a specific QueueType.
          */
-        [[nodiscard]]
-        uint32_t graphicsFamily() const
-        {
-            return m_graphicsFamily;
-        }
+        [[nodiscard]] uint32_t getQueueFamily(QueueType type) const;
+
+        /**
+         * @brief Convenience helper for graphics queue.
+         */
+        [[nodiscard]] const Queue& graphicsQueue() const { return getQueue(QueueType::GRAPHICS); }
 
     private:
-        /** @brief Handle to the physical GPU hardware. */
-        VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
 
-        /** @brief Handle to the logical Vulkan device connection. */
+        VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
         VkDevice m_device = VK_NULL_HANDLE;
 
-        /** @brief Handle to the graphics queue for submitting work. */
-        VkQueue m_graphicsQueue = VK_NULL_HANDLE;
-
-        /** @brief Index of the queue family supporting graphics pipeline operations. */
-        uint32_t m_graphicsFamily = 0;
+        std::unordered_map<QueueType, Queue> m_queues;
+        std::unordered_map<QueueType, uint32_t> m_queueFamilies;
     };
 
 } // namespace LavaVK

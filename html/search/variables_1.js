@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['deviceindex_0',['deviceIndex',['../struct_lava_v_k_1_1_g_p_u_device_create_info.html#a815ce219455cc2c0e85a3d536ebb7c02',1,'LavaVK::GPUDeviceCreateInfo']]]
+  ['enablevalidation_0',['enableValidation',['../struct_lava_v_k_1_1_instance_create_info.html#a10b43ab2ad355566b9074b010cd9841a',1,'LavaVK::InstanceCreateInfo']]],
+  ['extensions_1',['extensions',['../struct_lava_v_k_1_1_instance_create_info.html#a43b7b678b4d28c94d72fbfaed75b9175',1,'LavaVK::InstanceCreateInfo']]]
 ];

@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['_7edevice_0',['~Device',['../class_lava_v_k_1_1_device.html#a288ad958754b393656dd6ef9e94d7c08',1,'LavaVK::Device']]],
-  ['_7einstance_1',['~Instance',['../class_lava_v_k_1_1_instance.html#a0cdbb00095f6365b18bf23eee79f564f',1,'LavaVK::Instance']]]
+  ['reqirements_20dependencies_0',['Reqirements &amp;amp; dependencies',['../md__r_e_a_d_m_e.html#autotoc_md4',1,'']]],
+  ['reset_1',['reset',['../class_lava_v_k_1_1_fence.html#a09d94207721d36b6a2134760764f9080',1,'LavaVK::Fence']]]
 ];
