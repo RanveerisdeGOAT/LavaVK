@@ -1,0 +1,57 @@
+\doxysection{Lava\+VK\+::GPUDevice\+Create\+Info Struct Reference}
+\hypertarget{struct_lava_v_k_1_1_g_p_u_device_create_info}{}\label{struct_lava_v_k_1_1_g_p_u_device_create_info}\index{LavaVK::GPUDeviceCreateInfo@{LavaVK::GPUDeviceCreateInfo}}
+
+
+Configuration options for selecting and initializing a physical/logical Vulkan GPU device.  
+
+
+
+
+{\ttfamily \#include $<$Device.\+h$>$}
+
+\doxysubsubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+uint32\+\_\+t \mbox{\hyperlink{struct_lava_v_k_1_1_g_p_u_device_create_info_a815ce219455cc2c0e85a3d536ebb7c02}{device\+Index}} = UINT32\+\_\+\+MAX
+\begin{DoxyCompactList}\small\item\em Index of a specific GPU in the system to use. Set to {\ttfamily UINT32\+\_\+\+MAX} (default) to let Lava\+VK automatically select an optimal GPU. \end{DoxyCompactList}\item 
+bool \mbox{\hyperlink{struct_lava_v_k_1_1_g_p_u_device_create_info_a971eb6dd2fbe199f90d02b4a854fe017}{prefer\+Discrete\+GPU}} = true
+\begin{DoxyCompactList}\small\item\em Prefers a discrete GPU ({\ttfamily VK\+\_\+\+PHYSICAL\+\_\+\+DEVICE\+\_\+\+TYPE\+\_\+\+DISCRETE\+\_\+\+GPU}) over integrated graphics when {\ttfamily device\+Index} is not specified. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Configuration options for selecting and initializing a physical/logical Vulkan GPU device. 
+
+\label{doc-variable-members}
+\Hypertarget{struct_lava_v_k_1_1_g_p_u_device_create_info_doc-variable-members}
+\doxysubsection{Member Data Documentation}
+\Hypertarget{struct_lava_v_k_1_1_g_p_u_device_create_info_a815ce219455cc2c0e85a3d536ebb7c02}\index{LavaVK::GPUDeviceCreateInfo@{LavaVK::GPUDeviceCreateInfo}!deviceIndex@{deviceIndex}}
+\index{deviceIndex@{deviceIndex}!LavaVK::GPUDeviceCreateInfo@{LavaVK::GPUDeviceCreateInfo}}
+\doxysubsubsection{\texorpdfstring{deviceIndex}{deviceIndex}}
+{\footnotesize\ttfamily \label{struct_lava_v_k_1_1_g_p_u_device_create_info_a815ce219455cc2c0e85a3d536ebb7c02} 
+uint32\+\_\+t Lava\+VK\+::\+GPUDevice\+Create\+Info\+::device\+Index = UINT32\+\_\+\+MAX}
+
+
+
+Index of a specific GPU in the system to use. Set to {\ttfamily UINT32\+\_\+\+MAX} (default) to let Lava\+VK automatically select an optimal GPU. 
+
+
+\begin{DoxyItemize}
+\item 
+\end{DoxyItemize}\Hypertarget{struct_lava_v_k_1_1_g_p_u_device_create_info_a971eb6dd2fbe199f90d02b4a854fe017}\index{LavaVK::GPUDeviceCreateInfo@{LavaVK::GPUDeviceCreateInfo}!preferDiscreteGPU@{preferDiscreteGPU}}
+\index{preferDiscreteGPU@{preferDiscreteGPU}!LavaVK::GPUDeviceCreateInfo@{LavaVK::GPUDeviceCreateInfo}}
+\doxysubsubsection{\texorpdfstring{preferDiscreteGPU}{preferDiscreteGPU}}
+{\footnotesize\ttfamily \label{struct_lava_v_k_1_1_g_p_u_device_create_info_a971eb6dd2fbe199f90d02b4a854fe017} 
+bool Lava\+VK\+::\+GPUDevice\+Create\+Info\+::prefer\+Discrete\+GPU = true}
+
+
+
+Prefers a discrete GPU ({\ttfamily VK\+\_\+\+PHYSICAL\+\_\+\+DEVICE\+\_\+\+TYPE\+\_\+\+DISCRETE\+\_\+\+GPU}) over integrated graphics when {\ttfamily device\+Index} is not specified. 
+
+
+\begin{DoxyItemize}
+\item 
+\end{DoxyItemize}
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/\+Lava\+VK/Device.\+h\end{DoxyCompactItemize}
