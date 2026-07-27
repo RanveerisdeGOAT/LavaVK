@@ -1,384 +1,384 @@
-#include "../include/LavaVK/Device.h"
-#include "../include/LavaVK/Instance.h"
-#include "../include/LavaVK/Queue.h"
+#include "../include/LavaVK/Device.hpp"
+#include "../include/LavaVK/Instance.hpp"
+#include "../include/LavaVK/Queue.hpp"
 
 #include <stdexcept>
 #include <vector>
 #include <utility>
 #include <set>
 
-#include "LavaVK/Surface.h"
+#include "LavaVK/Surface.hpp"
 
 namespace LavaVK
 {
 
 
-namespace
-{
-    GPUType convertType(VkPhysicalDeviceType type)
+    namespace
     {
-        switch (type)
+        GPUType convertType(VkPhysicalDeviceType type)
         {
-            case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-                return GPUType::Discrete;
+            switch (type)
+            {
+                case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+                    return GPUType::Discrete;
 
-            case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-                return GPUType::Integrated;
+                case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+                    return GPUType::Integrated;
 
-            case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-                return GPUType::Virtual;
+                case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+                    return GPUType::Virtual;
 
-            case VK_PHYSICAL_DEVICE_TYPE_CPU:
-                return GPUType::CPU;
+                case VK_PHYSICAL_DEVICE_TYPE_CPU:
+                    return GPUType::CPU;
 
-            default:
-                return GPUType::Other;
+                default:
+                    return GPUType::Other;
+            }
         }
     }
-}
 
-GPUHardware GPUHardware::selectOptimalGPU(const Instance& instance, const Surface& surface)
-{
-    auto gpus = GPUHardware::enumerate(instance);
-
-    for (const auto& gpu : gpus)
+    GPUHardware GPUHardware::selectOptimalGPU(const Instance& instance, const Surface& surface)
     {
-        // Ensure the GPU has a presentation queue and adequate surface formats/present modes
-        if (gpu.isSurfaceSupported(surface))
+        auto gpus = GPUHardware::enumerate(instance);
+
+        for (const auto& gpu : gpus)
         {
-            // Prefer discrete GPU
-            if (gpu.type() == GPUType::Discrete)
+            // Ensure the GPU has a presentation queue and adequate surface formats/present modes
+            if (gpu.isSurfaceSupported(surface))
+            {
+                // Prefer discrete GPU
+                if (gpu.type() == GPUType::Discrete)
+                {
+                    return gpu;
+                }
+            }
+        }
+
+        // Fallback to first compatible GPU
+        for (const auto& gpu : gpus)
+        {
+            if (gpu.isSurfaceSupported(surface))
             {
                 return gpu;
             }
         }
+
+        throw std::runtime_error("[LavaVK ERROR] No suitable GPU supports the target surface.");
     }
 
-    // Fallback to first compatible GPU
-    for (const auto& gpu : gpus)
+    GPUHardware::GPUHardware(VkPhysicalDevice device)
+        : m_device(device)
     {
-        if (gpu.isSurfaceSupported(surface))
-        {
-            return gpu;
-        }
+        vkGetPhysicalDeviceProperties(m_device, &m_properties);
     }
 
-    throw std::runtime_error("[LavaVK ERROR] No suitable GPU supports the target surface.");
-}
-
-GPUHardware::GPUHardware(VkPhysicalDevice device)
-    : m_device(device)
-{
-    vkGetPhysicalDeviceProperties(m_device, &m_properties);
-}
-
-std::vector<GPUHardware> GPUHardware::enumerate(const Instance& instance)
-{
-    uint32_t count = 0;
-    vkEnumeratePhysicalDevices(instance.native(), &count, nullptr);
-
-    if (count == 0)
-        throw std::runtime_error("[LavaVK ERROR] No Vulkan compatible GPUs found.");
-
-    std::vector<VkPhysicalDevice> physicalDevices(count);
-    vkEnumeratePhysicalDevices(instance.native(), &count, physicalDevices.data());
-
-    std::vector<GPUHardware> result;
-    result.reserve(count);
-
-    for (auto device : physicalDevices)
-        result.emplace_back(device);
-
-    return result;
-}
-
-const std::string& GPUHardware::name() const
-{
-    static std::string name;
-    name = m_properties.deviceName;
-    return name;
-}
-
-GPUType GPUHardware::type() const
-{
-    return convertType(m_properties.deviceType);
-}
-
-uint32_t GPUHardware::apiVersion() const
-{
-    return m_properties.apiVersion;
-}
-
-uint32_t GPUHardware::driverVersion() const
-{
-    return m_properties.driverVersion;
-}
-
-uint32_t GPUHardware::vendorID() const
-{
-    return m_properties.vendorID;
-}
-
-uint32_t GPUHardware::deviceID() const
-{
-    return m_properties.deviceID;
-}
-
-    uint32_t GPUHardware::findQueueFamily(QueueType type, const Surface* surface) const
-{
-    uint32_t count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(m_device, &count, nullptr);
-
-    std::vector<VkQueueFamilyProperties> families(count);
-    vkGetPhysicalDeviceQueueFamilyProperties(m_device, &count, families.data());
-
-    for (uint32_t i = 0; i < count; ++i)
+    std::vector<GPUHardware> GPUHardware::enumerate(const Instance& instance)
     {
-        // Special case: Presentation Queue check
-        if (type == QueueType::PRESENT)
+        uint32_t count = 0;
+        vkEnumeratePhysicalDevices(instance.native(), &count, nullptr);
+
+        if (count == 0)
+            throw std::runtime_error("[LavaVK ERROR] No Vulkan compatible GPUs found.");
+
+        std::vector<VkPhysicalDevice> physicalDevices(count);
+        vkEnumeratePhysicalDevices(instance.native(), &count, physicalDevices.data());
+
+        std::vector<GPUHardware> result;
+        result.reserve(count);
+
+        for (auto device : physicalDevices)
+            result.emplace_back(device);
+
+        return result;
+    }
+
+    const std::string& GPUHardware::name() const
+    {
+        static std::string name;
+        name = m_properties.deviceName;
+        return name;
+    }
+
+    GPUType GPUHardware::type() const
+    {
+        return convertType(m_properties.deviceType);
+    }
+
+    uint32_t GPUHardware::apiVersion() const
+    {
+        return m_properties.apiVersion;
+    }
+
+    uint32_t GPUHardware::driverVersion() const
+    {
+        return m_properties.driverVersion;
+    }
+
+    uint32_t GPUHardware::vendorID() const
+    {
+        return m_properties.vendorID;
+    }
+
+    uint32_t GPUHardware::deviceID() const
+    {
+        return m_properties.deviceID;
+    }
+
+        uint32_t GPUHardware::findQueueFamily(QueueType type, const Surface* surface) const
+    {
+        uint32_t count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(m_device, &count, nullptr);
+
+        std::vector<VkQueueFamilyProperties> families(count);
+        vkGetPhysicalDeviceQueueFamilyProperties(m_device, &count, families.data());
+
+        for (uint32_t i = 0; i < count; ++i)
         {
-            if (!surface)
+            // Special case: Presentation Queue check
+            if (type == QueueType::PRESENT)
             {
-                throw std::runtime_error("[LavaVK ERROR] Cannot query QueueType::PRESENT without a valid Surface.");
+                if (!surface)
+                {
+                    throw std::runtime_error("[LavaVK ERROR] Cannot query QueueType::PRESENT without a valid Surface.");
+                }
+
+                VkBool32 presentSupport = VK_FALSE;
+                vkGetPhysicalDeviceSurfaceSupportKHR(m_device, i, surface->native(), &presentSupport);
+
+                if (presentSupport == VK_TRUE)
+                {
+                    return i;
+                }
             }
+            else
+            {
+                // Standard Vulkan hardware queue flag check
+                VkQueueFlags requiredFlags = static_cast<VkQueueFlags>(type);
+                if ((families[i].queueFlags & requiredFlags) == requiredFlags)
+                {
+                    return i;
+                }
+            }
+        }
 
-            VkBool32 presentSupport = VK_FALSE;
-            vkGetPhysicalDeviceSurfaceSupportKHR(m_device, i, surface->native(), &presentSupport);
+        throw std::runtime_error("[LavaVK ERROR] Failed to find requested QueueType family on GPU.");
+    }
 
-            if (presentSupport == VK_TRUE)
+    VkPhysicalDevice GPUHardware::native() const
+    {
+        return m_device;
+    }
+
+        bool GPUHardware::supportsPresentation(uint32_t queueFamilyIndex, const Surface& surface) const
+    {
+        VkBool32 presentSupport = VK_FALSE;
+        vkGetPhysicalDeviceSurfaceSupportKHR(m_device, queueFamilyIndex, surface.native(), &presentSupport);
+        return presentSupport == VK_TRUE;
+    }
+
+        uint32_t GPUHardware::findPresentQueueFamily(const Surface& surface) const
+    {
+        uint32_t count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(m_device, &count, nullptr);
+
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            if (supportsPresentation(i, surface))
             {
                 return i;
             }
         }
-        else
+
+        throw std::runtime_error("[LavaVK ERROR] GPU hardware does not support presentation on the given surface.");
+    }
+
+    bool GPUHardware::isSurfaceSupported(const Surface& surface) const
+    {
+        uint32_t formatCount = 0;
+        uint32_t presentModeCount = 0;
+
+        vkGetPhysicalDeviceSurfaceFormatsKHR(m_device, surface.native(), &formatCount, nullptr);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(m_device, surface.native(), &presentModeCount, nullptr);
+
+        return formatCount > 0 && presentModeCount > 0;
+    }
+
+    SurfaceCapabilities GPUHardware::getSurfaceCapabilities(const Surface& surface) const
+    {
+        SurfaceCapabilities result{};
+        VkPhysicalDevice rawGpu = m_device;
+        VkSurfaceKHR rawSurface = surface.native();
+
+        // 1. Query Capabilities
+        VkSurfaceCapabilitiesKHR vkCaps{};
+        if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(rawGpu, rawSurface, &vkCaps) != VK_SUCCESS)
         {
-            // Standard Vulkan hardware queue flag check
-            VkQueueFlags requiredFlags = static_cast<VkQueueFlags>(type);
-            if ((families[i].queueFlags & requiredFlags) == requiredFlags)
+            throw std::runtime_error("[LavaVK ERROR] Failed to query surface capabilities.");
+        }
+
+        result.minImageCount = vkCaps.minImageCount;
+        result.maxImageCount = vkCaps.maxImageCount;
+
+        result.currentExtent  = { vkCaps.currentExtent.width, vkCaps.currentExtent.height };
+        result.minImageExtent = { vkCaps.minImageExtent.width, vkCaps.minImageExtent.height };
+        result.maxImageExtent = { vkCaps.maxImageExtent.width, vkCaps.maxImageExtent.height };
+
+        result.currentTransform   = static_cast<uint32_t>(vkCaps.currentTransform);
+        result.supportedTransforms = static_cast<uint32_t>(vkCaps.supportedTransforms);
+
+        // 2. Query Surface Formats
+        uint32_t formatCount = 0;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(rawGpu, rawSurface, &formatCount, nullptr);
+
+        if (formatCount > 0)
+        {
+            std::vector<VkSurfaceFormatKHR> vkFormats(formatCount);
+            vkGetPhysicalDeviceSurfaceFormatsKHR(rawGpu, rawSurface, &formatCount, vkFormats.data());
+
+            result.formats.reserve(formatCount);
+            for (const auto& fmt : vkFormats)
             {
-                return i;
+                result.formats.push_back({
+                    static_cast<SurfaceFormat>(fmt.format),
+                    static_cast<ColorSpace>(fmt.colorSpace)
+                });
             }
         }
+
+        // 3. Query Present Modes
+        uint32_t modeCount = 0;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(rawGpu, rawSurface, &modeCount, nullptr);
+
+        if (modeCount > 0)
+        {
+            std::vector<VkPresentModeKHR> vkModes(modeCount);
+            vkGetPhysicalDeviceSurfacePresentModesKHR(rawGpu, rawSurface, &modeCount, vkModes.data());
+
+            result.presentModes.reserve(modeCount);
+            for (const auto& mode : vkModes)
+            {
+                result.presentModes.push_back(static_cast<PresentMode>(mode));
+            }
+        }
+
+        return result;
     }
 
-    throw std::runtime_error("[LavaVK ERROR] Failed to find requested QueueType family on GPU.");
-}
-
-VkPhysicalDevice GPUHardware::native() const
-{
-    return m_device;
-}
-
-    bool GPUHardware::supportsPresentation(uint32_t queueFamilyIndex, const Surface& surface) const
-{
-    VkBool32 presentSupport = VK_FALSE;
-    vkGetPhysicalDeviceSurfaceSupportKHR(m_device, queueFamilyIndex, surface.native(), &presentSupport);
-    return presentSupport == VK_TRUE;
-}
-
-    uint32_t GPUHardware::findPresentQueueFamily(const Surface& surface) const
-{
-    uint32_t count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(m_device, &count, nullptr);
-
-    for (uint32_t i = 0; i < count; ++i)
+    Device::Device(const GPUHardware& gpu_hardware,
+                   const std::vector<QueueType>& requestedQueues,
+                   const Surface* surface)
     {
-        if (supportsPresentation(i, surface))
+        m_physicalDevice = gpu_hardware.native();
+
+        // 1. Resolve Queue Families and Deduplicate Unique Family Indices
+        std::set<uint32_t> uniqueFamilies;
+
+        for (auto type : requestedQueues)
         {
-            return i;
+            // Pass surface to resolve QueueType::PRESENT if needed
+            uint32_t family = gpu_hardware.findQueueFamily(type, surface);
+            m_queueFamilies[type] = family;
+            uniqueFamilies.insert(family);
+        }
+
+        // 2. Prepare Queue Create Infos
+        float priority = 1.0f;
+        std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+
+        for (uint32_t familyIndex : uniqueFamilies)
+        {
+            VkDeviceQueueCreateInfo queueInfo{};
+            queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueInfo.queueFamilyIndex = familyIndex;
+            queueInfo.queueCount = 1;
+            queueInfo.pQueuePriorities = &priority;
+            queueCreateInfos.push_back(queueInfo);
+        }
+
+        // 3. Create Logical Device
+        VkDeviceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+        createInfo.pQueueCreateInfos = queueCreateInfos.data();
+
+        // Dynamically enable swapchain extension if a surface is provided
+        std::vector<const char*> extensions;
+        if (surface != nullptr)
+        {
+            extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        }
+
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+        createInfo.ppEnabledExtensionNames = extensions.data();
+
+        if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) != VK_SUCCESS)
+        {
+            throw std::runtime_error("[LavaVK ERROR] Failed to create logical device.");
+        }
+
+        // 4. Instantiate Queue Objects
+        for (auto type : requestedQueues)
+        {
+            m_queues[type] = Queue(*this, m_queueFamilies[type]);
         }
     }
 
-    throw std::runtime_error("[LavaVK ERROR] GPU hardware does not support presentation on the given surface.");
-}
-
-bool GPUHardware::isSurfaceSupported(const Surface& surface) const
-{
-    uint32_t formatCount = 0;
-    uint32_t presentModeCount = 0;
-
-    vkGetPhysicalDeviceSurfaceFormatsKHR(m_device, surface.native(), &formatCount, nullptr);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(m_device, surface.native(), &presentModeCount, nullptr);
-
-    return formatCount > 0 && presentModeCount > 0;
-}
-
-SurfaceCapabilities GPUHardware::getSurfaceCapabilities(const Surface& surface) const
-{
-    SurfaceCapabilities result{};
-    VkPhysicalDevice rawGpu = m_device;
-    VkSurfaceKHR rawSurface = surface.native();
-
-    // 1. Query Capabilities
-    VkSurfaceCapabilitiesKHR vkCaps{};
-    if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(rawGpu, rawSurface, &vkCaps) != VK_SUCCESS)
-    {
-        throw std::runtime_error("[LavaVK ERROR] Failed to query surface capabilities.");
-    }
-
-    result.minImageCount = vkCaps.minImageCount;
-    result.maxImageCount = vkCaps.maxImageCount;
-
-    result.currentExtent  = { vkCaps.currentExtent.width, vkCaps.currentExtent.height };
-    result.minImageExtent = { vkCaps.minImageExtent.width, vkCaps.minImageExtent.height };
-    result.maxImageExtent = { vkCaps.maxImageExtent.width, vkCaps.maxImageExtent.height };
-
-    result.currentTransform   = static_cast<uint32_t>(vkCaps.currentTransform);
-    result.supportedTransforms = static_cast<uint32_t>(vkCaps.supportedTransforms);
-
-    // 2. Query Surface Formats
-    uint32_t formatCount = 0;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(rawGpu, rawSurface, &formatCount, nullptr);
-
-    if (formatCount > 0)
-    {
-        std::vector<VkSurfaceFormatKHR> vkFormats(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(rawGpu, rawSurface, &formatCount, vkFormats.data());
-
-        result.formats.reserve(formatCount);
-        for (const auto& fmt : vkFormats)
-        {
-            result.formats.push_back({
-                static_cast<SurfaceFormat>(fmt.format),
-                static_cast<ColorSpace>(fmt.colorSpace)
-            });
-        }
-    }
-
-    // 3. Query Present Modes
-    uint32_t modeCount = 0;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(rawGpu, rawSurface, &modeCount, nullptr);
-
-    if (modeCount > 0)
-    {
-        std::vector<VkPresentModeKHR> vkModes(modeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(rawGpu, rawSurface, &modeCount, vkModes.data());
-
-        result.presentModes.reserve(modeCount);
-        for (const auto& mode : vkModes)
-        {
-            result.presentModes.push_back(static_cast<PresentMode>(mode));
-        }
-    }
-
-    return result;
-}
-
-Device::Device(const GPUHardware& gpu_hardware,
-               const std::vector<QueueType>& requestedQueues,
-               const Surface* surface)
-{
-    m_physicalDevice = gpu_hardware.native();
-
-    // 1. Resolve Queue Families and Deduplicate Unique Family Indices
-    std::set<uint32_t> uniqueFamilies;
-
-    for (auto type : requestedQueues)
-    {
-        // Pass surface to resolve QueueType::PRESENT if needed
-        uint32_t family = gpu_hardware.findQueueFamily(type, surface);
-        m_queueFamilies[type] = family;
-        uniqueFamilies.insert(family);
-    }
-
-    // 2. Prepare Queue Create Infos
-    float priority = 1.0f;
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-
-    for (uint32_t familyIndex : uniqueFamilies)
-    {
-        VkDeviceQueueCreateInfo queueInfo{};
-        queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueInfo.queueFamilyIndex = familyIndex;
-        queueInfo.queueCount = 1;
-        queueInfo.pQueuePriorities = &priority;
-        queueCreateInfos.push_back(queueInfo);
-    }
-
-    // 3. Create Logical Device
-    VkDeviceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-    createInfo.pQueueCreateInfos = queueCreateInfos.data();
-
-    // Dynamically enable swapchain extension if a surface is provided
-    std::vector<const char*> extensions;
-    if (surface != nullptr)
-    {
-        extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-    }
-
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-    createInfo.ppEnabledExtensionNames = extensions.data();
-
-    if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) != VK_SUCCESS)
-    {
-        throw std::runtime_error("[LavaVK ERROR] Failed to create logical device.");
-    }
-
-    // 4. Instantiate Queue Objects
-    for (auto type : requestedQueues)
-    {
-        m_queues[type] = Queue(*this, m_queueFamilies[type]);
-    }
-}
-
-Device::~Device()
-{
-    if (m_device != VK_NULL_HANDLE)
-        vkDestroyDevice(m_device, nullptr);
-}
-
-Device::Device(Device&& other) noexcept
-    : m_physicalDevice(other.m_physicalDevice),
-      m_device(other.m_device),
-      m_queues(std::move(other.m_queues)),
-      m_queueFamilies(std::move(other.m_queueFamilies))
-{
-    other.m_physicalDevice = VK_NULL_HANDLE;
-    other.m_device = VK_NULL_HANDLE;
-}
-
-Device& Device::operator=(Device&& other) noexcept
-{
-    if (this != &other)
+    Device::~Device()
     {
         if (m_device != VK_NULL_HANDLE)
             vkDestroyDevice(m_device, nullptr);
+    }
 
-        m_physicalDevice = other.m_physicalDevice;
-        m_device = other.m_device;
-        m_queues = std::move(other.m_queues);
-        m_queueFamilies = std::move(other.m_queueFamilies);
-
+    Device::Device(Device&& other) noexcept
+        : m_physicalDevice(other.m_physicalDevice),
+          m_device(other.m_device),
+          m_queues(std::move(other.m_queues)),
+          m_queueFamilies(std::move(other.m_queueFamilies))
+    {
         other.m_physicalDevice = VK_NULL_HANDLE;
         other.m_device = VK_NULL_HANDLE;
     }
-    return *this;
-}
 
-const Queue& Device::getQueue(QueueType type) const
-{
-    auto it = m_queues.find(type);
-    if (it == m_queues.end())
-        throw std::runtime_error("Requested queue type not initialized on this device.");
-    return it->second;
-}
+    Device& Device::operator=(Device&& other) noexcept
+    {
+        if (this != &other)
+        {
+            if (m_device != VK_NULL_HANDLE)
+                vkDestroyDevice(m_device, nullptr);
 
-Queue& Device::getQueue(QueueType type)
-{
-    auto it = m_queues.find(type);
-    if (it == m_queues.end())
-        throw std::runtime_error("Requested queue type not initialized on this device.");
-    return it->second;
-}
+            m_physicalDevice = other.m_physicalDevice;
+            m_device = other.m_device;
+            m_queues = std::move(other.m_queues);
+            m_queueFamilies = std::move(other.m_queueFamilies);
 
-uint32_t Device::getQueueFamily(QueueType type) const
-{
-    auto it = m_queueFamilies.find(type);
-    if (it == m_queueFamilies.end())
-        throw std::runtime_error("Requested queue family not initialized on this device.");
-    return it->second;
-}
+            other.m_physicalDevice = VK_NULL_HANDLE;
+            other.m_device = VK_NULL_HANDLE;
+        }
+        return *this;
+    }
+
+    const Queue& Device::getQueue(QueueType type) const
+    {
+        auto it = m_queues.find(type);
+        if (it == m_queues.end())
+            throw std::runtime_error("Requested queue type not initialized on this device.");
+        return it->second;
+    }
+
+    Queue& Device::getQueue(QueueType type)
+    {
+        auto it = m_queues.find(type);
+        if (it == m_queues.end())
+            throw std::runtime_error("Requested queue type not initialized on this device.");
+        return it->second;
+    }
+
+    uint32_t Device::getQueueFamily(QueueType type) const
+    {
+        auto it = m_queueFamilies.find(type);
+        if (it == m_queueFamilies.end())
+            throw std::runtime_error("Requested queue family not initialized on this device.");
+        return it->second;
+    }
 
 } // namespace LavaVK

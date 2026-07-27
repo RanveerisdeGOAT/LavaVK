@@ -1,5 +1,5 @@
-#include "../include/LavaVK/Fence.h"
-#include "../include/LavaVK/Device.h"
+#include "../include/LavaVK/Fence.hpp"
+#include "../include/LavaVK/Device.hpp"
 #include <utility>
 
 namespace LavaVK

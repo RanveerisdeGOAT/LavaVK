@@ -6,7 +6,7 @@
 #ifndef LAVAVK_SURFACE_H
 #define LAVAVK_SURFACE_H
 
-#include "Instance.h"
+#include "Instance.hpp"
 
 #include <vulkan/vulkan.h>
 #include <functional>

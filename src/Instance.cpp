@@ -1,4 +1,4 @@
-#include "../include/LavaVK/Instance.h"
+#include "../include/LavaVK/Instance.hpp"
 
 #include <stdexcept>
 #include <vector>

@@ -6,8 +6,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "Queue.h"
-#include "Surface.h"
+#include "Queue.hpp"
+#include "Surface.hpp"
 
 namespace LavaVK
 {

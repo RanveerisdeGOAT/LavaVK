@@ -1,7 +1,7 @@
-#include "../include/LavaVK/Queue.h"
+#include "../include/LavaVK/Queue.hpp"
 
-#include "LavaVK/Device.h"
-#include "LavaVK/Fence.h"
+#include "LavaVK/Device.hpp"
+#include "LavaVK/Fence.hpp"
 
 namespace LavaVK
 {

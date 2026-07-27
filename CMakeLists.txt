@@ -24,10 +24,10 @@ add_subdirectory(external/glm/glm)
 add_library(LavaVK
         src/Instance.cpp
         src/Device.cpp
-        src/GLFW.cpp
         src/Queue.cpp
         src/Fence.cpp
-        include/LavaVK/Surface.h
+        include/LavaVK/Surface.hpp
+        src/Pipeline.cpp
 )
 
 target_include_directories(LavaVK
