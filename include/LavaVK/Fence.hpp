@@ -4,12 +4,10 @@
 #include <vulkan/vulkan.h>
 #include <cstdint>
 
-namespace LavaVK
-{
+namespace LavaVK {
     class Device;
 
-    class Fence
-    {
+    class Fence {
     public:
         Fence() = default;
 
@@ -18,17 +16,19 @@ namespace LavaVK
          * @param device The LavaVK Device instance.
          * @param signaled Whether to create the fence in a signaled state (default: false).
          */
-        Fence(Device& device, bool signaled = false);
+        Fence(Device &device, bool signaled = false);
 
         ~Fence();
 
         // Prevent copying
-        Fence(const Fence&) = delete;
-        Fence& operator=(const Fence&) = delete;
+        Fence(const Fence &) = delete;
+
+        Fence &operator=(const Fence &) = delete;
 
         // Allow moving
-        Fence(Fence&& other) noexcept;
-        Fence& operator=(Fence&& other) noexcept;
+        Fence(Fence &&other) noexcept;
+
+        Fence &operator=(Fence &&other) noexcept;
 
         /**
          * @brief Waits for the fence to reach the signaled state.

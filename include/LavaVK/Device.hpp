@@ -9,8 +9,7 @@
 #include "Queue.hpp"
 #include "Surface.hpp"
 
-namespace LavaVK
-{
+namespace LavaVK {
     class Surface;
     enum class QueueType : uint32_t;
     class Instance;
@@ -18,8 +17,7 @@ namespace LavaVK
     /**
      * @brief Configuration options for selecting and initializing a physical/logical Vulkan GPU device.
      */
-    enum class GPUType
-    {
+    enum class GPUType {
         Other,
         Integrated,
         Discrete,
@@ -27,8 +25,7 @@ namespace LavaVK
         CPU
     };
 
-    class GPUHardware
-    {
+    class GPUHardware {
     public:
         GPUHardware() = default;
 
@@ -37,12 +34,12 @@ namespace LavaVK
         /**
          * @brief Returns every Vulkan compatible GPU in the system.
          */
-        static std::vector<GPUHardware> enumerate(const Instance& instance);
+        static std::vector<GPUHardware> enumerate(const Instance &instance);
 
         /**
          * @brief Returns the GPU name.
          */
-        [[nodiscard]] const std::string& name() const;
+        [[nodiscard]] const std::string &name() const;
 
         /**
          * @brief Returns the GPU type.
@@ -72,7 +69,7 @@ namespace LavaVK
         /**
          * @brief Finds a queue family supporting the requested operations.
          */
-        [[nodiscard]] uint32_t findQueueFamily(QueueType type, const Surface* surface) const;
+        [[nodiscard]] uint32_t findQueueFamily(QueueType type, const Surface *surface) const;
 
         /**
          * @brief Returns the underlying Vulkan handle.
@@ -85,21 +82,22 @@ namespace LavaVK
          * @return Queue family index supporting presentation.
          * @throw std::runtime_error if no queue family supports presentation.
          */
-        [[nodiscard]] uint32_t findPresentQueueFamily(const Surface& surface) const;
+        [[nodiscard]] uint32_t findPresentQueueFamily(const Surface &surface) const;
 
         /**
          * @brief Checks if a specific queue family supports presenting to a given surface.
          */
-        [[nodiscard]] bool supportsPresentation(uint32_t queueFamilyIndex, const Surface& surface) const;
+        [[nodiscard]] bool supportsPresentation(uint32_t queueFamilyIndex, const Surface &surface) const;
 
         /**
          * @brief Checks if the physical GPU supports swapchain rendering on a given surface.
          */
-        [[nodiscard]] bool isSurfaceSupported(const Surface& surface) const;
+        [[nodiscard]] bool isSurfaceSupported(const Surface &surface) const;
 
-        [[nodiscard]]  static GPUHardware selectOptimalGPU(const Instance& instance, const Surface& surface);
+        [[nodiscard]] static GPUHardware selectOptimalGPU(const Instance &instance, const Surface &surface);
 
-        [[nodiscard]] SurfaceCapabilities getSurfaceCapabilities(const Surface& surface) const;
+        [[nodiscard]] SurfaceCapabilities getSurfaceCapabilities(const Surface &surface) const;
+
     private:
         friend class Device;
 
@@ -111,13 +109,13 @@ namespace LavaVK
      * @brief Manages the Vulkan physical device selection, logical device instantiation (`VkDevice`),
      * and graphics queue retrieval.
      */
-    class Device
-    {
+    class Device {
     public:
         /**
          * @brief Constructs a LavaVK Device, selecting a physical GPU and creating a logical device.
          */
-        explicit Device(const GPUHardware& gpu_hardware, const std::vector<QueueType>& requestedQueues, const Surface* surface);
+        explicit Device(const GPUHardware &gpu_hardware, const std::vector<QueueType> &requestedQueues,
+                        const Surface *surface);
 
         /**
          * @brief Destructor. Destroys the managed `VkDevice` if valid.
@@ -126,19 +124,21 @@ namespace LavaVK
 
         /// @name Deleted Copy Operations
         /// @{
-        Device(const Device&) = delete;
-        Device& operator=(const Device&) = delete;
+        Device(const Device &) = delete;
+
+        Device &operator=(const Device &) = delete;
+
         /// @}
 
         /**
          * @brief Move constructor. Transfers logical device and queue ownership from another `Device`.
          */
-        Device(Device&& other) noexcept;
+        Device(Device &&other) noexcept;
 
         /**
          * @brief Move assignment operator. Destroys current resources and acquires ownership from `other`.
          */
-        Device& operator=(Device&& other) noexcept;
+        Device &operator=(Device &&other) noexcept;
 
         /**
          * @brief Gets the native Vulkan logical device handle (`VkDevice`).
@@ -153,8 +153,9 @@ namespace LavaVK
         /**
          * @brief Gets a specific Queue by QueueType.
          */
-        [[nodiscard]] const Queue& getQueue(QueueType type) const;
-        [[nodiscard]] Queue& getQueue(QueueType type);
+        [[nodiscard]] const Queue &getQueue(QueueType type) const;
+
+        [[nodiscard]] Queue &getQueue(QueueType type);
 
         /**
          * @brief Gets queue family index for a specific QueueType.
@@ -164,17 +165,15 @@ namespace LavaVK
         /**
          * @brief Convenience helper for graphics queue.
          */
-        [[nodiscard]] const Queue& graphicsQueue() const { return getQueue(QueueType::GRAPHICS); }
+        [[nodiscard]] const Queue &graphicsQueue() const { return getQueue(QueueType::GRAPHICS); }
 
     private:
-
         VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
         VkDevice m_device = VK_NULL_HANDLE;
 
         std::unordered_map<QueueType, Queue> m_queues;
         std::unordered_map<QueueType, uint32_t> m_queueFamilies;
     };
-
 } // namespace LavaVK
 
 #endif // LAVAVK_DEVICE_H

@@ -3,11 +3,8 @@
 #include <stdexcept>
 #include <vector>
 
-namespace LavaVK
-{
-
-    Instance::Instance(const InstanceCreateInfo& info)
-    {
+namespace LavaVK {
+    Instance::Instance(const InstanceCreateInfo &info) {
         VkApplicationInfo app{};
         app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         app.pApplicationName = info.applicationName.c_str();
@@ -16,11 +13,11 @@ namespace LavaVK
         app.engineVersion = VK_MAKE_VERSION(1, 0, 0);
         app.apiVersion = VK_API_VERSION_1_3;
 
-        std::vector<const char*> extensions = info.extensions;
+        std::vector<const char *> extensions = info.extensions;
 
-        #ifndef NDEBUG
+#ifndef NDEBUG
         if (info.enableValidation) extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-        #endif
+#endif
 
         VkInstanceCreateInfo create{};
         create.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -30,36 +27,31 @@ namespace LavaVK
 
         create.ppEnabledExtensionNames = extensions.data();
 
-        #ifndef NDEBUG
-        const char* layers[] { "VK_LAYER_KHRONOS_validation" };
+#ifndef NDEBUG
+        const char *layers[]{"VK_LAYER_KHRONOS_validation"};
 
-        if (info.enableValidation)
-        {
+        if (info.enableValidation) {
             create.enabledLayerCount = 1;
             create.ppEnabledLayerNames = layers;
         }
-        #endif
+#endif
 
         if (vkCreateInstance(&create, nullptr, &m_instance) != VK_SUCCESS)
             throw std::runtime_error("[LavaVK ERROR] Failed to create Vulkan instance.");
     }
 
-    Instance::~Instance()
-    {
+    Instance::~Instance() {
         if (m_instance)
             vkDestroyInstance(m_instance, nullptr);
     }
 
-    Instance::Instance(Instance&& other) noexcept
-    {
+    Instance::Instance(Instance &&other) noexcept {
         m_instance = other.m_instance;
         other.m_instance = VK_NULL_HANDLE;
     }
 
-    Instance& Instance::operator=(Instance&& other) noexcept
-    {
-        if (this != &other)
-        {
+    Instance &Instance::operator=(Instance &&other) noexcept {
+        if (this != &other) {
             if (m_instance)
                 vkDestroyInstance(m_instance, nullptr);
 
@@ -69,5 +61,4 @@ namespace LavaVK
 
         return *this;
     }
-
 }

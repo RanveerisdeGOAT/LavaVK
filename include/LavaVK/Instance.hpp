@@ -5,13 +5,11 @@
 #include <string>
 #include <vector>
 
-namespace LavaVK
-{
+namespace LavaVK {
     /**
      * @brief Configuration parameters used to initialize a LavaVK Instance.
      */
-    struct InstanceCreateInfo
-    {
+    struct InstanceCreateInfo {
         /** @brief The name of the application. */
         std::string applicationName = "Application";
 
@@ -22,7 +20,7 @@ namespace LavaVK
         bool enableValidation = true;
 
         /** @brief List of required Vulkan instance extensions. */
-        std::vector<const char*> extensions;
+        std::vector<const char *> extensions;
     };
 
     /**
@@ -31,15 +29,14 @@ namespace LavaVK
      * This class implements RAII semantics and move operations. Copying is explicitly disabled to prevent
      * multiple deletions of the underlying handle.
      */
-    class Instance
-    {
+    class Instance {
     public:
         /**
          * @brief Constructs a new LavaVK Instance and initializes the underlying Vulkan context.
          * * @param info Configuration structure specifying application metadata, validation rules, and extensions.
          * @throw std::runtime_error Thrown if `vkCreateInstance` fails to initialize the Vulkan context.
          */
-        explicit Instance(const InstanceCreateInfo& info = {});
+        explicit Instance(const InstanceCreateInfo &info = {});
 
         /**
          * @brief Destructor. Destroys the managed `VkInstance` handle if valid.
@@ -48,30 +45,31 @@ namespace LavaVK
 
         /// @name Deleted Copy Operations
         /// @{
-        Instance(const Instance&) = delete;
-        Instance& operator=(const Instance&) = delete;
+        Instance(const Instance &) = delete;
+
+        Instance &operator=(const Instance &) = delete;
+
         /// @}
 
         /**
          * @brief Move constructor. Transfers ownership of the Vulkan instance handle from another `Instance`.
          * @param other The instance being moved from.
          */
-        Instance(Instance&& other) noexcept;
+        Instance(Instance &&other) noexcept;
 
         /**
          * @brief Move assignment operator. Destroys the current managed handle and acquires the handle from another `Instance`.
          * @param other The instance being moved from.
          * @return Reference to this instance.
          */
-        Instance& operator=(Instance&& other) noexcept;
+        Instance &operator=(Instance &&other) noexcept;
 
         /**
          * @brief Retrieves the raw, underlying native `VkInstance` handle.
          * @return The underlying `VkInstance` handle, or `VK_NULL_HANDLE` if invalid.
          */
         [[nodiscard]]
-        VkInstance native() const
-        {
+        VkInstance native() const {
             return m_instance;
         }
 
@@ -79,7 +77,6 @@ namespace LavaVK
         /** @brief Native Vulkan instance handle. */
         VkInstance m_instance = VK_NULL_HANDLE;
     };
-
 } // namespace LavaVK
 
 #endif // LAVAVK_INSTANCE_H

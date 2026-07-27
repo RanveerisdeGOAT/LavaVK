@@ -10,22 +10,20 @@ namespace LavaVK {
     class Device;
 }
 
-namespace LavaVK
-{
+namespace LavaVK {
     class Fence;
 
     /**
      * @brief Supported hardware queue operation types matching Vulkan queue flags.
      */
-    enum class QueueType : uint32_t
-    {
+    enum class QueueType : uint32_t {
         GRAPHICS = VK_QUEUE_GRAPHICS_BIT, /**< Supports graphics rendering pipeline operations (0x00000001). */
-        COMPUTE  = VK_QUEUE_COMPUTE_BIT,  /**< Supports compute execution pipelines (0x00000002). */
+        COMPUTE = VK_QUEUE_COMPUTE_BIT, /**< Supports compute execution pipelines (0x00000002). */
         TRANSFER = VK_QUEUE_TRANSFER_BIT, /**< Supports buffer/image memory transfer operations (0x00000004). */
-        SPARSE   = VK_QUEUE_SPARSE_BINDING_BIT, /**< Supports sparse resource binding (0x00000008). */
+        SPARSE = VK_QUEUE_SPARSE_BINDING_BIT, /**< Supports sparse resource binding (0x00000008). */
 
         // Custom bit flag for Presentation (avoiding Vulkan's bit flags)
-        PRESENT  = 0x00000020 /**< Supports surface presentation operations. */
+        PRESENT = 0x00000020 /**< Supports surface presentation operations. */
     };
 
     /**
@@ -33,14 +31,12 @@ namespace LavaVK
      * * Manages internal lifetime for wait semaphores, signal semaphores, pipeline stage masks,
      * and command buffers to prevent pointer dangling during submission.
      */
-    class SubmitInfo
-    {
+    class SubmitInfo {
     public:
         /**
          * @brief Default constructor. Initializes internal VkSubmitInfo struct fields to default values.
          */
-        SubmitInfo()
-        {
+        SubmitInfo() {
             m_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
             m_info.pNext = nullptr;
             m_info.waitSemaphoreCount = 0;
@@ -58,8 +54,8 @@ namespace LavaVK
          * @param stages Pipeline stages at which each corresponding wait semaphore will occur.
          * @return Reference to this SubmitInfo instance for method chaining.
          */
-        SubmitInfo& setWaitSemaphores(const std::vector<VkSemaphore>& semaphores, const std::vector<VkPipelineStageFlags>& stages)
-        {
+        SubmitInfo &setWaitSemaphores(const std::vector<VkSemaphore> &semaphores,
+                                      const std::vector<VkPipelineStageFlags> &stages) {
             m_waitSemaphores = semaphores;
             m_waitDstStageMasks = stages;
 
@@ -74,8 +70,7 @@ namespace LavaVK
          * @param commandBuffers Vector of Vulkan command buffers to submit.
          * @return Reference to this SubmitInfo instance for method chaining.
          */
-        SubmitInfo& setCommandBuffers(const std::vector<VkCommandBuffer>& commandBuffers)
-        {
+        SubmitInfo &setCommandBuffers(const std::vector<VkCommandBuffer> &commandBuffers) {
             m_commandBuffers = commandBuffers;
 
             m_info.commandBufferCount = static_cast<uint32_t>(m_commandBuffers.size());
@@ -88,8 +83,7 @@ namespace LavaVK
          * @param semaphores Vector of Vulkan semaphores to signal upon completion.
          * @return Reference to this SubmitInfo instance for method chaining.
          */
-        SubmitInfo& setSignalSemaphores(const std::vector<VkSemaphore>& semaphores)
-        {
+        SubmitInfo &setSignalSemaphores(const std::vector<VkSemaphore> &semaphores) {
             m_signalSemaphores = semaphores;
 
             m_info.signalSemaphoreCount = static_cast<uint32_t>(m_signalSemaphores.size());
@@ -101,7 +95,7 @@ namespace LavaVK
          * @brief Gets the native Vulkan VkSubmitInfo structure.
          * @return Const reference to the configured underlying VkSubmitInfo object.
          */
-        [[nodiscard]] const VkSubmitInfo& native() const { return m_info; }
+        [[nodiscard]] const VkSubmitInfo &native() const { return m_info; }
 
     private:
         VkSubmitInfo m_info{};
@@ -114,8 +108,7 @@ namespace LavaVK
     /**
      * @brief Wrapper class managing execution operations on a Vulkan device queue (`VkQueue`).
      */
-    class Queue
-    {
+    class Queue {
     public:
         /**
          * @brief Default constructor. Constructs an uninitialized Queue handle.
@@ -128,7 +121,7 @@ namespace LavaVK
          * @param family Queue family index corresponding to this queue handle.
          */
         Queue(
-            Device& device,
+            Device &device,
             uint32_t family
         );
 
@@ -138,8 +131,8 @@ namespace LavaVK
          * @param fence Fence object signaled when all submitted command buffers finish execution.
          */
         void submit(
-            const SubmitInfo& submitInfo,
-            Fence& fence
+            const SubmitInfo &submitInfo,
+            Fence &fence
         ) const;
 
         /**
@@ -151,8 +144,7 @@ namespace LavaVK
          * @brief Gets the native Vulkan queue handle (`VkQueue`).
          * @return The underlying `VkQueue` handle.
          */
-        [[nodiscard]] VkQueue native() const
-        {
+        [[nodiscard]] VkQueue native() const {
             return m_queue;
         }
 
@@ -160,16 +152,14 @@ namespace LavaVK
          * @brief Gets the queue family index associated with this queue.
          * @return The queue family index as an unsigned integer.
          */
-        [[nodiscard]] uint32_t family() const
-        {
+        [[nodiscard]] uint32_t family() const {
             return m_family;
         }
 
     private:
         VkQueue m_queue = VK_NULL_HANDLE; /**< Native Vulkan queue handle. */
-        uint32_t m_family = 0;             /**< Queue family index. */
+        uint32_t m_family = 0; /**< Queue family index. */
     };
-
 } // namespace LavaVK
 
 #endif // LAVAVK_QUEUE_H
