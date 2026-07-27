@@ -3,25 +3,31 @@
 #include <fstream>
 #include <vector>
 #include <array>
+#include <filesystem>
 #include <memory>
 #include <stdexcept>
 #include <unordered_map>
+#include <shaderc/shaderc.hpp>
 
 #include "LavaVK/Device.hpp"
 
 namespace LavaVK {
 
     namespace {
-        static std::vector<char> readFile(const std::string& filename) {
+        static std::vector<uint32_t> readSpvFile(const std::string& filename) {
             std::ifstream file(filename, std::ios::ate | std::ios::binary);
             if (!file.is_open()) {
                 throw std::runtime_error("[LavaVK ERROR] Failed to open shader file: " + filename);
             }
 
             size_t fileSize = static_cast<size_t>(file.tellg());
-            std::vector<char> buffer(fileSize);
+            if (fileSize % sizeof(uint32_t) != 0) {
+                throw std::runtime_error("[LavaVK ERROR] Invalid SPIR-V file size (must be a multiple of 4 bytes): " + filename);
+            }
+
+            std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
             file.seekg(0);
-            file.read(buffer.data(), fileSize);
+            file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
             file.close();
 
             return buffer;
@@ -54,18 +60,82 @@ namespace LavaVK {
             if (flags & STAGE_COMPUTE_BIT)                result |= VK_SHADER_STAGE_COMPUTE_BIT;
             return result;
         }
+
+        // Helper to deduce ShaderType from file extension
+        LavaVK::ShaderType deduceShaderType(const std::string& filepath)
+        {
+            std::filesystem::path path(filepath);
+            std::string ext = path.extension().string();
+
+            if (ext == ".vert") return LavaVK::ShaderType::Vertex;
+            if (ext == ".frag") return LavaVK::ShaderType::Fragment;
+            if (ext == ".comp") return LavaVK::ShaderType::Compute;
+
+            throw std::runtime_error("[LavaVK Error] Unknown shader extension: " + ext);
+        }
+
+        std::vector<uint32_t> compileGLSLToSPIRV(
+            const std::string& filepath,
+            LavaVK::ShaderType type)
+        {
+            // Read source code from file
+            std::ifstream file(filepath);
+            if (!file.is_open()) {
+                throw std::runtime_error("[Shaderc Error] Failed to open GLSL file: " + filepath);
+            }
+            std::stringstream buffer;
+            buffer << file.rdbuf();
+            std::string sourceCode = buffer.str();
+
+            shaderc::Compiler compiler;
+            shaderc::CompileOptions options;
+
+            options.SetOptimizationLevel(shaderc_optimization_level_performance);
+            options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
+
+            shaderc_shader_kind kind;
+            switch (type) {
+                case LavaVK::ShaderType::Vertex:   kind = shaderc_glsl_vertex_shader; break;
+                case LavaVK::ShaderType::Fragment: kind = shaderc_glsl_fragment_shader; break;
+                case LavaVK::ShaderType::Compute:  kind = shaderc_glsl_compute_shader; break;
+            }
+
+            shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(
+                sourceCode,
+                kind,
+                filepath.c_str(),
+                options
+            );
+
+            if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
+                throw std::runtime_error("[Shaderc Error] " + module.GetErrorMessage());
+            }
+
+            return { module.cbegin(), module.cend() };
+        }
     }
 
 
 
     Shader::Shader(Device& device, const std::string& filepath)
-        : m_device(device)
+    : m_device(device)
     {
-        auto code = readFile(filepath);
-        createShaderModule(code);
+        std::filesystem::path path(filepath);
+
+        if (path.extension() == ".spv")
+        {
+            std::vector<uint32_t> spirv = readSpvFile(filepath);
+            createShaderModule(spirv);
+        }
+        else
+        {
+            ShaderType type = deduceShaderType(filepath);
+            std::vector<uint32_t> spirv = compileGLSLToSPIRV(filepath, type);
+            createShaderModule(spirv);
+        }
     }
 
-    Shader::Shader(Device& device, const std::vector<char>& code)
+    Shader::Shader(Device& device, const std::vector<uint32_t>& code)
         : m_device(device)
     {
         createShaderModule(code);
@@ -77,11 +147,13 @@ namespace LavaVK {
         }
     }
 
-    void Shader::createShaderModule(const std::vector<char>& code) {
+    void Shader::createShaderModule(const std::vector<uint32_t>& code) {
         VkShaderModuleCreateInfo createInfo{};
         createInfo.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        createInfo.codeSize = code.size();
-        createInfo.pCode    = reinterpret_cast<const uint32_t*>(code.data());
+        // codeSize MUST BE IN BYTES
+        createInfo.codeSize = code.size() * sizeof(uint32_t);
+        // Properly aligned pointer
+        createInfo.pCode    = code.data();
 
         if (vkCreateShaderModule(m_device.native(), &createInfo, nullptr, &m_module) != VK_SUCCESS) {
             throw std::runtime_error("[LavaVK ERROR] Failed to create shader module!");
@@ -388,6 +460,235 @@ namespace LavaVK {
             write.dstSet = set;
         }
         vkUpdateDescriptorSets(m_pool.m_device.native(), static_cast<uint32_t>(m_writes.size()), m_writes.data(), 0, nullptr);
+    }
+
+    GraphicsPipeline::GraphicsPipeline(
+        Device& device,
+        const GraphicsPipelineCreateInfo& info)
+        : m_device(device)
+    {
+        if (!info.vertexShader)
+            throw std::runtime_error("[LavaVK ERROR] Vertex shader is null.");
+
+        if (!info.fragmentShader)
+            throw std::runtime_error("[LavaVK ERROR] Fragment shader is null.");
+
+        if (!info.layout)
+            throw std::runtime_error("[LavaVK ERROR] PipelineLayout is null.");
+
+        if (!info.renderPass)
+            throw std::runtime_error("[LavaVK ERROR] RenderPass is null.");
+
+        VkPipelineShaderStageCreateInfo shaderStages[2]{};
+
+        shaderStages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        shaderStages[0].stage  = VK_SHADER_STAGE_VERTEX_BIT;
+        shaderStages[0].module = info.vertexShader->native();
+        shaderStages[0].pName  = "main";
+
+        shaderStages[1].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        shaderStages[1].stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+        shaderStages[1].module = info.fragmentShader->native();
+        shaderStages[1].pName  = "main";
+
+        VkPipelineVertexInputStateCreateInfo vertexInput{};
+
+        vertexInput.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+        vertexInput.vertexBindingDescriptionCount = 0;
+        vertexInput.vertexAttributeDescriptionCount = 0;
+
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+
+        inputAssembly.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+
+        inputAssembly.topology =
+            static_cast<VkPrimitiveTopology>(info.topology);
+
+        inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+        VkPipelineViewportStateCreateInfo viewportState{};
+
+        viewportState.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+
+        viewportState.viewportCount = 1;
+        viewportState.scissorCount  = 1;
+
+        VkPipelineRasterizationStateCreateInfo rasterizer{};
+
+        rasterizer.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+
+        rasterizer.depthClampEnable = VK_FALSE;
+        rasterizer.rasterizerDiscardEnable = VK_FALSE;
+
+        rasterizer.polygonMode =
+            static_cast<VkPolygonMode>(info.polygonMode);
+
+        rasterizer.lineWidth = 1.0f;
+
+        rasterizer.cullMode =
+            static_cast<VkCullModeFlags>(info.cullMode);
+
+        rasterizer.frontFace =
+            static_cast<VkFrontFace>(info.frontFace);
+
+        rasterizer.depthBiasEnable = VK_FALSE;
+
+        VkPipelineMultisampleStateCreateInfo multisampling{};
+
+        multisampling.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+
+        multisampling.rasterizationSamples = info.samples;
+        multisampling.sampleShadingEnable = VK_FALSE;
+        VkPipelineDepthStencilStateCreateInfo depthStencil{};
+
+        depthStencil.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+
+        depthStencil.depthTestEnable =
+            info.depthTest ? VK_TRUE : VK_FALSE;
+
+        depthStencil.depthWriteEnable =
+            info.depthWrite ? VK_TRUE : VK_FALSE;
+
+        depthStencil.depthCompareOp =
+            static_cast<VkCompareOp>(info.depthCompare);
+
+        depthStencil.depthBoundsTestEnable = VK_FALSE;
+        depthStencil.stencilTestEnable = VK_FALSE;
+
+        VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+
+        colorBlendAttachment.colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT |
+            VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT |
+            VK_COLOR_COMPONENT_A_BIT;
+
+        colorBlendAttachment.blendEnable =
+            info.blending ? VK_TRUE : VK_FALSE;
+
+        colorBlendAttachment.srcColorBlendFactor =
+            static_cast<VkBlendFactor>(info.srcColorBlendFactor);
+
+        colorBlendAttachment.dstColorBlendFactor =
+            static_cast<VkBlendFactor>(info.dstColorBlendFactor);
+
+        colorBlendAttachment.colorBlendOp =
+            static_cast<VkBlendOp>(info.colorBlendOperation);
+
+        colorBlendAttachment.srcAlphaBlendFactor =
+            static_cast<VkBlendFactor>(info.srcAlphaBlendFactor);
+
+        colorBlendAttachment.dstAlphaBlendFactor =
+            static_cast<VkBlendFactor>(info.dstAlphaBlendFactor);
+
+        colorBlendAttachment.alphaBlendOp =
+            static_cast<VkBlendOp>(info.alphaBlendOperation);
+
+        VkPipelineColorBlendStateCreateInfo colorBlending{};
+
+        colorBlending.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+
+        colorBlending.logicOpEnable = VK_FALSE;
+
+        colorBlending.attachmentCount = 1;
+        colorBlending.pAttachments = &colorBlendAttachment;
+
+        std::vector<VkDynamicState> dynamicStates;
+
+        if (info.dynamicViewport)
+            dynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+
+        if (info.dynamicScissor)
+            dynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+
+        VkPipelineDynamicStateCreateInfo dynamicState{};
+
+        dynamicState.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+
+        dynamicState.dynamicStateCount =
+            static_cast<uint32_t>(dynamicStates.size());
+
+        dynamicState.pDynamicStates =
+            dynamicStates.data();
+
+        VkGraphicsPipelineCreateInfo pipelineInfo{};
+
+        pipelineInfo.sType =
+            VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+        pipelineInfo.stageCount = 2;
+        pipelineInfo.pStages = shaderStages;
+
+        pipelineInfo.pVertexInputState = &vertexInput;
+        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pDepthStencilState = &depthStencil;
+        pipelineInfo.pColorBlendState = &colorBlending;
+        pipelineInfo.pDynamicState = &dynamicState;
+
+        pipelineInfo.layout = info.layout->native();
+        pipelineInfo.renderPass = info.renderPass->native();
+
+        pipelineInfo.subpass = 0;
+
+        if (vkCreateGraphicsPipelines(
+                m_device.native(),
+                VK_NULL_HANDLE,
+                1,
+                &pipelineInfo,
+                nullptr,
+                &m_pipeline) != VK_SUCCESS)
+        {
+            throw std::runtime_error(
+                "[LavaVK ERROR] Failed to create graphics pipeline.");
+        }
+    }
+
+    GraphicsPipeline::~GraphicsPipeline()
+    {
+        if (m_pipeline != VK_NULL_HANDLE)
+            vkDestroyPipeline(m_device.native(), m_pipeline, nullptr);
+    }
+
+    GraphicsPipeline::GraphicsPipeline(GraphicsPipeline&& other) noexcept
+        : m_device(other.m_device),
+          m_pipeline(other.m_pipeline)
+    {
+        other.m_pipeline = VK_NULL_HANDLE;
+    }
+
+    GraphicsPipeline&
+    GraphicsPipeline::operator=(GraphicsPipeline&& other) noexcept
+    {
+        if (this != &other)
+        {
+            if (m_pipeline != VK_NULL_HANDLE)
+                vkDestroyPipeline(m_device.native(), m_pipeline, nullptr);
+
+            m_pipeline = other.m_pipeline;
+            other.m_pipeline = VK_NULL_HANDLE;
+        }
+
+        return *this;
+    }
+
+    void GraphicsPipeline::bind(VkCommandBuffer commandBuffer) const
+    {
+        vkCmdBindPipeline(
+            commandBuffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            m_pipeline);
     }
 
 } // namespace LavaVK

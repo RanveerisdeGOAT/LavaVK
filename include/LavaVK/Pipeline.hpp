@@ -13,10 +13,19 @@ namespace LavaVK {
 
 
 
+    enum class ShaderType {
+        Vertex,
+        Fragment,
+        Compute
+    };
+
     class Shader {
     public:
-        Shader(Device &device, const std::string &filepath);
-        Shader(Device& device, const std::vector<char>& code);
+        // Load from file (.spv or .vert / .frag / .comp GLSL source)
+        Shader(Device& device, const std::string& filepath);
+
+        // Construct directly from SPIR-V 32-bit word vector
+        Shader(Device& device, const std::vector<uint32_t>& code);
         ~Shader();
 
         Shader(const Shader&) = delete;
@@ -25,7 +34,7 @@ namespace LavaVK {
         [[nodiscard]] VkShaderModule native() const { return m_module; }
 
     private:
-        void createShaderModule(const std::vector<char>& code);
+        void createShaderModule(const std::vector<uint32_t>& code);
 
         Device& m_device;
         VkShaderModule m_module{VK_NULL_HANDLE};
