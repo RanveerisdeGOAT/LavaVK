@@ -23,11 +23,42 @@ Planned features:
 - Shader management
 - Pipeline creation helpers
 - Vulkan validation layer support
-- GLFW integration helpers
 
 ---
 
 ## Reqirements & dependencies
-- Vulkan SDK
+- Vulkan SDK Download: https://vulkan.lunarg.com/
+- shaderc (included in repo)
+- GLM (included in repo)
 
-Download: https://vulkan.lunarg.com/
+## Installation
+```bash
+git clone https://github.com/RanveerisdeGOAT/LavaVK.git
+```
+###Cmake support
+```cmake
+project(Example)
+
+add_subdirectory(LavaVK)
+
+add_executable(Example
+        main.cpp
+)
+
+target_link_libraries(Example
+        PRIVATE
+        LavaVK::LavaVK
+)
+```
+
+## Contributing
+
+Contributions are welcome! Please open an issue before submitting large changes.
+
+---
+
+LavaVK 2026
+Author: @RanveerisdeGOAT
+Co-Authors: Deepseek, Gemini, ChatGPT ;)
+Open source: Free to use, modify and improve: https://github.com/RanveerisdeGOAT?tab=repositories
+MIT Licence
