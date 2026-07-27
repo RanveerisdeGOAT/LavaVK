@@ -325,6 +325,37 @@ namespace LavaVK {
         VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     };
 
+    class GraphicsPipeline
+    {
+    public:
+
+        GraphicsPipeline(
+            Device& device,
+            const GraphicsPipelineCreateInfo& info);
+
+        ~GraphicsPipeline();
+
+        GraphicsPipeline(const GraphicsPipeline&) = delete;
+        GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
+
+        GraphicsPipeline(GraphicsPipeline&& other) noexcept;
+        GraphicsPipeline& operator=(GraphicsPipeline&& other) noexcept;
+
+        void bind(VkCommandBuffer commandBuffer) const;
+
+        [[nodiscard]]
+        VkPipeline native() const
+        {
+            return m_pipeline;
+        }
+
+    private:
+
+        Device& m_device;
+
+        VkPipeline m_pipeline = VK_NULL_HANDLE;
+    };
+
 } // namespace LavaVK
 
 #endif // LAVAVK_PIPLINE_HPP
