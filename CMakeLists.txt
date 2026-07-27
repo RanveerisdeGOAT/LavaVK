@@ -27,6 +27,7 @@ add_library(LavaVK
         src/GLFW.cpp
         src/Queue.cpp
         src/Fence.cpp
+        include/LavaVK/Surface.h
 )
 
 target_include_directories(LavaVK

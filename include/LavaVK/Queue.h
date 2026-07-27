@@ -17,10 +17,15 @@ namespace LavaVK
     /**
      * @brief Supported hardware queue operation types matching Vulkan queue flags.
      */
-    enum class QueueType : uint32_t {
-        GRAPHICS = VK_QUEUE_GRAPHICS_BIT, /**< Supports graphics rendering pipeline operations. */
-        COMPUTE  = VK_QUEUE_COMPUTE_BIT,  /**< Supports compute execution pipelines. */
-        TRANSFER = VK_QUEUE_TRANSFER_BIT, /**< Supports buffer/image memory transfer operations. */
+    enum class QueueType : uint32_t
+    {
+        GRAPHICS = VK_QUEUE_GRAPHICS_BIT, /**< Supports graphics rendering pipeline operations (0x00000001). */
+        COMPUTE  = VK_QUEUE_COMPUTE_BIT,  /**< Supports compute execution pipelines (0x00000002). */
+        TRANSFER = VK_QUEUE_TRANSFER_BIT, /**< Supports buffer/image memory transfer operations (0x00000004). */
+        SPARSE   = VK_QUEUE_SPARSE_BINDING_BIT, /**< Supports sparse resource binding (0x00000008). */
+
+        // Custom bit flag for Presentation (avoiding Vulkan's bit flags)
+        PRESENT  = 0x00000020 /**< Supports surface presentation operations. */
     };
 
     /**

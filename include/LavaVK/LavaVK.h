@@ -10,5 +10,6 @@
 #include "GLFW.h"
 #include "Fence.h"
 #include "Queue.h"
+#include "Surface.h"
 
 #endif //LAVAVK_LAVAVK_H

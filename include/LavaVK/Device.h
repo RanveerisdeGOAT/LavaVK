@@ -7,9 +7,11 @@
 #include <unordered_map>
 #include <vector>
 #include "Queue.h"
+#include "Surface.h"
 
 namespace LavaVK
 {
+    class Surface;
     enum class QueueType : uint32_t;
     class Instance;
 
@@ -70,13 +72,34 @@ namespace LavaVK
         /**
          * @brief Finds a queue family supporting the requested operations.
          */
-        [[nodiscard]] uint32_t findQueueFamily(QueueType type) const;
+        [[nodiscard]] uint32_t findQueueFamily(QueueType type, const Surface* surface) const;
 
         /**
          * @brief Returns the underlying Vulkan handle.
          */
         [[nodiscard]] VkPhysicalDevice native() const;
 
+        /**
+         * @brief Finds a queue family supporting surface presentation.
+         * @param surface The surface to present to.
+         * @return Queue family index supporting presentation.
+         * @throw std::runtime_error if no queue family supports presentation.
+         */
+        [[nodiscard]] uint32_t findPresentQueueFamily(const Surface& surface) const;
+
+        /**
+         * @brief Checks if a specific queue family supports presenting to a given surface.
+         */
+        [[nodiscard]] bool supportsPresentation(uint32_t queueFamilyIndex, const Surface& surface) const;
+
+        /**
+         * @brief Checks if the physical GPU supports swapchain rendering on a given surface.
+         */
+        [[nodiscard]] bool isSurfaceSupported(const Surface& surface) const;
+
+        [[nodiscard]]  static GPUHardware selectOptimalGPU(const Instance& instance, const Surface& surface);
+
+        [[nodiscard]] SurfaceCapabilities getSurfaceCapabilities(const Surface& surface) const;
     private:
         friend class Device;
 
@@ -94,7 +117,7 @@ namespace LavaVK
         /**
          * @brief Constructs a LavaVK Device, selecting a physical GPU and creating a logical device.
          */
-        explicit Device(const GPUHardware& gpu_hardware, const std::vector<QueueType>& requestedQueues);
+        explicit Device(const GPUHardware& gpu_hardware, const std::vector<QueueType>& requestedQueues, const Surface* surface);
 
         /**
          * @brief Destructor. Destroys the managed `VkDevice` if valid.
