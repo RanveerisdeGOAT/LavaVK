@@ -40,9 +40,11 @@ add_library(LavaVK
         src/Instance.cpp
         src/Device.cpp
         src/Queue.cpp
-        src/Fence.cpp
+        src/Sync.cpp
         include/LavaVK/Surface.hpp
         src/Pipeline.cpp
+        src/SwapChain.cpp
+        src/Buffer.cpp
 )
 
 target_include_directories(LavaVK

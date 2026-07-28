@@ -402,7 +402,7 @@ namespace LavaVK {
          * @param depthFormat Vulkan format for depth attachment (`VK_FORMAT_UNDEFINED` to disable depth).
          * @param samples Multisample count flag (defaults to 1 sample).
          */
-        RenderPass(Device &device, VkFormat colorFormat, VkFormat depthFormat,
+        RenderPass(Device &device, VkFormat colorFormat, VkFormat depthFormat = VK_FORMAT_UNDEFINED,
                    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
 
         /**

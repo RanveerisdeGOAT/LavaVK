@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "LavaVK/LavaVK.hpp"
+
 namespace LavaVK {
     Instance::Instance(const InstanceCreateInfo &info) {
         VkApplicationInfo app{};
@@ -37,7 +39,7 @@ namespace LavaVK {
 #endif
 
         if (vkCreateInstance(&create, nullptr, &m_instance) != VK_SUCCESS)
-            throw std::runtime_error("[LavaVK ERROR] Failed to create Vulkan instance.");
+            LAVAVK_ERROR("[LavaVK ERROR] Failed to create Vulkan instance.");
     }
 
     Instance::~Instance() {

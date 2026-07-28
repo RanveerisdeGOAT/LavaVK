@@ -1,15 +1,47 @@
-//
-// Created by paikr on 7/26/2026.
-//
+/*
+MIT License
+
+2026 MigratoryAtom79
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+#ifndef LAVAVK_ERROR_HANDLER
+#define LAVAVK_ERROR_HANDLER
+    #ifndef NDEBUG
+        #define LAVAVK_ERROR(msg) throw std::runtime_error(msg)
+    #else
+        #define LAVAVK_ERROR(msg) std::cerr << msg << std::endl
+    #endif
+#endif
+
 
 #ifndef LAVAVK_LAVAVK_H
 #define LAVAVK_LAVAVK_H
+#include "iostream"
 
 #include "Instance.hpp"
 #include "Device.hpp"
-#include "Fence.hpp"
+#include "Sync.hpp"
 #include "Queue.hpp"
 #include "Surface.hpp"
 #include "Pipeline.hpp"
+#include "SwapChain.hpp"
+#include "Buffer.hpp"
 
 #endif //LAVAVK_LAVAVK_H

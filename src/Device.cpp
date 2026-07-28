@@ -7,6 +7,7 @@
 #include <utility>
 #include <set>
 
+#include "LavaVK/LavaVK.hpp"
 #include "LavaVK/Surface.hpp"
 
 namespace LavaVK {
@@ -51,7 +52,7 @@ namespace LavaVK {
             }
         }
 
-        throw std::runtime_error("[LavaVK ERROR] No suitable GPU supports the target surface.");
+        LAVAVK_ERROR("[LavaVK ERROR] No suitable GPU supports the target surface.");
     }
 
     GPUHardware::GPUHardware(VkPhysicalDevice device)
@@ -64,7 +65,7 @@ namespace LavaVK {
         vkEnumeratePhysicalDevices(instance.native(), &count, nullptr);
 
         if (count == 0)
-            throw std::runtime_error("[LavaVK ERROR] No Vulkan compatible GPUs found.");
+            LAVAVK_ERROR("[LavaVK ERROR] No Vulkan compatible GPUs found.");
 
         std::vector<VkPhysicalDevice> physicalDevices(count);
         vkEnumeratePhysicalDevices(instance.native(), &count, physicalDevices.data());
@@ -115,7 +116,7 @@ namespace LavaVK {
             // Special case: Presentation Queue check
             if (type == QueueType::PRESENT) {
                 if (!surface) {
-                    throw std::runtime_error("[LavaVK ERROR] Cannot query QueueType::PRESENT without a valid Surface.");
+                    LAVAVK_ERROR("[LavaVK ERROR] Cannot query QueueType::PRESENT without a valid Surface.");
                 }
 
                 VkBool32 presentSupport = VK_FALSE;
@@ -133,7 +134,7 @@ namespace LavaVK {
             }
         }
 
-        throw std::runtime_error("[LavaVK ERROR] Failed to find requested QueueType family on GPU.");
+        LAVAVK_ERROR("[LavaVK ERROR] Failed to find requested QueueType family on GPU.");
     }
 
     VkPhysicalDevice GPUHardware::native() const {
@@ -156,7 +157,7 @@ namespace LavaVK {
             }
         }
 
-        throw std::runtime_error("[LavaVK ERROR] GPU hardware does not support presentation on the given surface.");
+        LAVAVK_ERROR("[LavaVK ERROR] GPU hardware does not support presentation on the given surface.");
     }
 
     bool GPUHardware::isSurfaceSupported(const Surface &surface) const {
@@ -177,7 +178,7 @@ namespace LavaVK {
         // 1. Query Capabilities
         VkSurfaceCapabilitiesKHR vkCaps{};
         if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(rawGpu, rawSurface, &vkCaps) != VK_SUCCESS) {
-            throw std::runtime_error("[LavaVK ERROR] Failed to query surface capabilities.");
+            LAVAVK_ERROR("[LavaVK ERROR] Failed to query surface capabilities.");
         }
 
         result.minImageCount = vkCaps.minImageCount;
@@ -268,7 +269,7 @@ namespace LavaVK {
         createInfo.ppEnabledExtensionNames = extensions.data();
 
         if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) != VK_SUCCESS) {
-            throw std::runtime_error("[LavaVK ERROR] Failed to create logical device.");
+            LAVAVK_ERROR("[LavaVK ERROR] Failed to create logical device.");
         }
 
         // 4. Instantiate Queue Objects
@@ -310,21 +311,21 @@ namespace LavaVK {
     const Queue &Device::getQueue(QueueType type) const {
         auto it = m_queues.find(type);
         if (it == m_queues.end())
-            throw std::runtime_error("Requested queue type not initialized on this device.");
+            LAVAVK_ERROR("Requested queue type not initialized on this device.");
         return it->second;
     }
 
     Queue &Device::getQueue(QueueType type) {
         auto it = m_queues.find(type);
         if (it == m_queues.end())
-            throw std::runtime_error("Requested queue type not initialized on this device.");
+            LAVAVK_ERROR("Requested queue type not initialized on this device.");
         return it->second;
     }
 
     uint32_t Device::getQueueFamily(QueueType type) const {
         auto it = m_queueFamilies.find(type);
         if (it == m_queueFamilies.end())
-            throw std::runtime_error("Requested queue family not initialized on this device.");
+            LAVAVK_ERROR("Requested queue family not initialized on this device.");
         return it->second;
     }
 } // namespace LavaVK

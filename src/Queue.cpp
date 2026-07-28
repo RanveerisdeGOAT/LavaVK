@@ -1,7 +1,7 @@
 #include "../include/LavaVK/Queue.hpp"
 
 #include "LavaVK/Device.hpp"
-#include "LavaVK/Fence.hpp"
+#include "LavaVK/Sync.hpp"
 
 namespace LavaVK {
     Queue::Queue(Device &device, uint32_t family) : m_family(family) {

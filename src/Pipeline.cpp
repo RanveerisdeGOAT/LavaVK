@@ -10,18 +10,19 @@
 #include <shaderc/shaderc.hpp>
 
 #include "LavaVK/Device.hpp"
+#include "LavaVK/LavaVK.hpp"
 
 namespace LavaVK {
     namespace {
         static std::vector<uint32_t> readSpvFile(const std::string &filename) {
             std::ifstream file(filename, std::ios::ate | std::ios::binary);
             if (!file.is_open()) {
-                throw std::runtime_error("[LavaVK ERROR] Failed to open shader file: " + filename);
+                LAVAVK_ERROR("[LavaVK ERROR] Failed to open shader file: " + filename);
             }
 
             size_t fileSize = static_cast<size_t>(file.tellg());
             if (fileSize % sizeof(uint32_t) != 0) {
-                throw std::runtime_error(
+                LAVAVK_ERROR(
                     "[LavaVK ERROR] Invalid SPIR-V file size (must be a multiple of 4 bytes): " + filename);
             }
 
@@ -70,7 +71,7 @@ namespace LavaVK {
             if (ext == ".frag") return LavaVK::ShaderType::Fragment;
             if (ext == ".comp") return LavaVK::ShaderType::Compute;
 
-            throw std::runtime_error("[LavaVK Error] Unknown shader extension: " + ext);
+            LAVAVK_ERROR("[LavaVK Error] Unknown shader extension: " + ext);
         }
 
         std::vector<uint32_t> compileGLSLToSPIRV(
@@ -79,7 +80,7 @@ namespace LavaVK {
             // Read source code from file
             std::ifstream file(filepath);
             if (!file.is_open()) {
-                throw std::runtime_error("[Shaderc Error] Failed to open GLSL file: " + filepath);
+                LAVAVK_ERROR("[Shaderc Error] Failed to open GLSL file: " + filepath);
             }
             std::stringstream buffer;
             buffer << file.rdbuf();
@@ -109,7 +110,7 @@ namespace LavaVK {
             );
 
             if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
-                throw std::runtime_error("[Shaderc Error] " + module.GetErrorMessage());
+                LAVAVK_ERROR("[Shaderc Error] " + module.GetErrorMessage());
             }
 
             return {module.cbegin(), module.cend()};
@@ -151,7 +152,7 @@ namespace LavaVK {
         createInfo.pCode = code.data();
 
         if (vkCreateShaderModule(m_device.native(), &createInfo, nullptr, &m_module) != VK_SUCCESS) {
-            throw std::runtime_error("[LavaVK ERROR] Failed to create shader module!");
+            LAVAVK_ERROR("[LavaVK ERROR] Failed to create shader module!");
         }
     }
 
@@ -190,7 +191,7 @@ namespace LavaVK {
         createInfo.pPushConstantRanges = vkPushConstantRanges.empty() ? nullptr : vkPushConstantRanges.data();
 
         if (vkCreatePipelineLayout(m_device.native(), &createInfo, nullptr, &m_layout) != VK_SUCCESS) {
-            throw std::runtime_error("[LavaVK ERROR] Failed to create pipeline layout!");
+            LAVAVK_ERROR("[LavaVK ERROR] Failed to create pipeline layout!");
         }
     }
 
@@ -264,14 +265,14 @@ namespace LavaVK {
         renderPassInfo.pDependencies = &dependency;
 
         if (vkCreateRenderPass(m_device.native(), &renderPassInfo, nullptr, &m_renderPass) != VK_SUCCESS) {
-            throw std::runtime_error("[LavaVK ERROR] Failed to create render pass!");
+            LAVAVK_ERROR("[LavaVK ERROR] Failed to create render pass!");
         }
     }
 
     RenderPass::RenderPass(Device &device, const VkRenderPassCreateInfo &createInfo)
         : m_device(device) {
         if (vkCreateRenderPass(m_device.native(), &createInfo, nullptr, &m_renderPass) != VK_SUCCESS) {
-            throw std::runtime_error("[LavaVK ERROR] Failed to create render pass!");
+            LAVAVK_ERROR("[LavaVK ERROR] Failed to create render pass!");
         }
     }
 
@@ -324,7 +325,7 @@ namespace LavaVK {
         createInfo.pBindings = vkBindings.data();
 
         if (vkCreateDescriptorSetLayout(m_device.native(), &createInfo, nullptr, &m_layout) != VK_SUCCESS) {
-            throw std::runtime_error("[LavaVK ERROR] Failed to create descriptor set layout!");
+            LAVAVK_ERROR("[LavaVK ERROR] Failed to create descriptor set layout!");
         }
     }
 
@@ -375,7 +376,7 @@ namespace LavaVK {
         poolInfo.flags = flags;
 
         if (vkCreateDescriptorPool(m_device.native(), &poolInfo, nullptr, &m_pool) != VK_SUCCESS) {
-            throw std::runtime_error("[LavaVK ERROR] Failed to create descriptor pool!");
+            LAVAVK_ERROR("[LavaVK ERROR] Failed to create descriptor pool!");
         }
     }
 
@@ -457,16 +458,16 @@ namespace LavaVK {
         const GraphicsPipelineCreateInfo &info)
         : m_device(device) {
         if (!info.vertexShader)
-            throw std::runtime_error("[LavaVK ERROR] Vertex shader is null.");
+            LAVAVK_ERROR("[LavaVK ERROR] Vertex shader is null.");
 
         if (!info.fragmentShader)
-            throw std::runtime_error("[LavaVK ERROR] Fragment shader is null.");
+            LAVAVK_ERROR("[LavaVK ERROR] Fragment shader is null.");
 
         if (!info.layout)
-            throw std::runtime_error("[LavaVK ERROR] PipelineLayout is null.");
+            LAVAVK_ERROR("[LavaVK ERROR] PipelineLayout is null.");
 
         if (!info.renderPass)
-            throw std::runtime_error("[LavaVK ERROR] RenderPass is null.");
+            LAVAVK_ERROR("[LavaVK ERROR] RenderPass is null.");
 
         VkPipelineShaderStageCreateInfo shaderStages[2]{};
 
@@ -638,7 +639,7 @@ namespace LavaVK {
                 &pipelineInfo,
                 nullptr,
                 &m_pipeline) != VK_SUCCESS) {
-            throw std::runtime_error(
+            LAVAVK_ERROR(
                 "[LavaVK ERROR] Failed to create graphics pipeline.");
         }
     }
@@ -654,8 +655,7 @@ namespace LavaVK {
         other.m_pipeline = VK_NULL_HANDLE;
     }
 
-    GraphicsPipeline &
-    GraphicsPipeline::operator=(GraphicsPipeline &&other) noexcept {
+    GraphicsPipeline& GraphicsPipeline::operator=(GraphicsPipeline &&other) noexcept {
         if (this != &other) {
             if (m_pipeline != VK_NULL_HANDLE)
                 vkDestroyPipeline(m_device.native(), m_pipeline, nullptr);
