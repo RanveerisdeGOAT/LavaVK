@@ -203,7 +203,7 @@ namespace LavaVK {
 
 
     RenderPass::RenderPass(Device &device, VkFormat colorFormat, VkFormat depthFormat, VkSampleCountFlagBits samples)
-        : m_device(device) {
+        : m_device(device), m_colorFormat(colorFormat), m_depthFormat(depthFormat) {
         // Color Attachment
         VkAttachmentDescription colorAttachment{};
         colorAttachment.format = colorFormat;

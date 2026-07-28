@@ -43,5 +43,6 @@ SOFTWARE.
 #include "Pipeline.hpp"
 #include "SwapChain.hpp"
 #include "Buffer.hpp"
+#include "Command.hpp"
 
 #endif //LAVAVK_LAVAVK_H

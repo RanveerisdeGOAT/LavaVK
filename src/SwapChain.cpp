@@ -54,33 +54,55 @@ namespace LavaVK {
     SwapChain::SwapChain(
         Device &device,
         Surface &surface,
-        VkFormat format,
+        RenderPass &renderPass,
+        VkFormat colorFormat,
+        VkFormat depthFormat,
         VkExtent2D extent)
         : m_device(device),
-          m_surface(surface) {
+          m_surface(surface),
+          m_renderPass(renderPass),
+          m_colorFormat(colorFormat),
+          m_depthFormat(depthFormat),
+          m_extent(extent) {
+        // Create synchronization primitives (created once and kept alive during recreations)
+        m_imageAvailable.reserve(MAX_FRAMES_IN_FLIGHT);
+        m_inFlightFences.reserve(MAX_FRAMES_IN_FLIGHT);
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            m_imageAvailable.emplace_back(m_device);
+            m_inFlightFences.emplace_back(m_device, true); // Create signaled
+        }
+
+        create();
+    }
+
+    SwapChain::~SwapChain() {
+        cleanup();
+    }
+
+    void SwapChain::create() {
         VkPhysicalDevice physicalDevice = m_device.physical();
         VkSurfaceKHR surfaceHandle = m_surface.native();
 
-        // Query Capabilities
+        // 1. Query Capabilities
         VkSurfaceCapabilitiesKHR capabilities;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surfaceHandle, &capabilities);
 
-        // Query Formats
+        // 2. Query Formats
         uint32_t formatCount = 0;
         vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surfaceHandle, &formatCount, nullptr);
         std::vector<VkSurfaceFormatKHR> formats(formatCount);
         vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surfaceHandle, &formatCount, formats.data());
 
-        // Query Present Modes
+        // 3. Query Present Modes
         uint32_t presentModeCount = 0;
         vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surfaceHandle, &presentModeCount, nullptr);
         std::vector<VkPresentModeKHR> presentModes(presentModeCount);
         vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surfaceHandle, &presentModeCount,
                                                   presentModes.data());
 
-        VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(formats, format);
+        VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(formats, m_colorFormat);
         VkPresentModeKHR presentMode = chooseSwapPresentMode(presentModes);
-        VkExtent2D swapExtent = chooseSwapExtent(capabilities, extent);
+        VkExtent2D swapExtent = chooseSwapExtent(capabilities, m_extent);
 
         m_format = surfaceFormat.format;
         m_extent = swapExtent;
@@ -121,7 +143,7 @@ namespace LavaVK {
             throw std::runtime_error("[LavaVK ERROR] Failed to create Vulkan swapchain.");
         }
 
-        // Retrieve raw VkImages
+        // 4. Retrieve raw VkImages & encapsulate them inside LavaVK::Image wrappers
         uint32_t rawImageCount = 0;
         vkGetSwapchainImagesKHR(m_device.native(), m_swapchain, &rawImageCount, nullptr);
         std::vector<VkImage> rawImages(rawImageCount);
@@ -133,74 +155,93 @@ namespace LavaVK {
             m_images.emplace_back(m_device, rawImg, m_format, VK_IMAGE_ASPECT_COLOR_BIT, imageExtent);
         }
 
-        // Create Per-Frame-In-Flight Synchronization Objects
-        m_imageAvailable.reserve(MAX_FRAMES_IN_FLIGHT);
-        m_inFlightFences.reserve(MAX_FRAMES_IN_FLIGHT);
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            m_imageAvailable.emplace_back(m_device);
-            m_inFlightFences.emplace_back(m_device, true); // Create signaled
-        }
-
-        // Create Per-Swapchain-Image RenderFinished Semaphores
+        // 5. Create Per-Swapchain-Image RenderFinished Semaphores
+        m_renderFinished.clear();
         m_renderFinished.reserve(rawImageCount);
         for (size_t i = 0; i < rawImageCount; i++) {
             m_renderFinished.emplace_back(m_device);
         }
 
-        m_imagesInFlight.resize(rawImageCount, VK_NULL_HANDLE);
+        m_imagesInFlight.assign(rawImageCount, VK_NULL_HANDLE);
+
+        // 6. Create Depth Image Attachment
+        m_depthImage = std::make_unique<Image>(
+            m_device,
+            ImageCreateInfo{
+                .type = ImageType::IMAGE_2D,
+                .extent = {m_extent.width, m_extent.height, 1},
+                .format = m_depthFormat,
+                .usage = ImageUsage::DEPTH_ATTACHMENT,
+                .aspect = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .samples = VK_SAMPLE_COUNT_1_BIT,
+                .tiling = VK_IMAGE_TILING_OPTIMAL,
+                .memory = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+            }
+        );
+
+        // 7. Create Framebuffers
+        m_framebuffers.reserve(m_images.size());
+        for (size_t i = 0; i < m_images.size(); i++) {
+            std::vector<Image *> attachments = {&m_images[i], m_depthImage.get()};
+            m_framebuffers.emplace_back(m_device, m_renderPass, attachments);
+        }
     }
 
-    SwapChain::~SwapChain() {
+    void SwapChain::cleanup() {
+        // 1. Destroy Framebuffers first (depend on Images & RenderPass)
+        m_framebuffers.clear();
+
+        // 2. Destroy Depth Image Attachment
+        m_depthImage.reset();
+
+        // 3. Destroy Color Image wrappers
+        m_images.clear();
+
+        // 4. Destroy native VkSwapchainKHR handle
         if (m_swapchain != VK_NULL_HANDLE) {
             vkDestroySwapchainKHR(m_device.native(), m_swapchain, nullptr);
+            m_swapchain = VK_NULL_HANDLE;
         }
     }
 
-    SwapChain::SwapChain(SwapChain &&other) noexcept
-        : m_device(other.m_device),
-          m_surface(other.m_surface),
-          m_swapchain(other.m_swapchain),
-          m_format(other.m_format),
-          m_extent(other.m_extent),
-          m_images(std::move(other.m_images)),
-          m_currentFrame(other.m_currentFrame),
-          m_imageAvailable(std::move(other.m_imageAvailable)),
-          m_inFlightFences(std::move(other.m_inFlightFences)),
-          m_renderFinished(std::move(other.m_renderFinished)),
-          m_imagesInFlight(std::move(other.m_imagesInFlight)) {
-        other.m_swapchain = VK_NULL_HANDLE;
-    }
+    void SwapChain::recreate() {
+        VkExtent2D newExtent = getLatestExtent();
 
-    SwapChain &SwapChain::operator=(SwapChain &&other) noexcept {
-        if (this != &other) {
-            m_images.clear();
-
-            if (m_swapchain != VK_NULL_HANDLE) {
-                vkDestroySwapchainKHR(m_device.native(), m_swapchain, nullptr);
-            }
-
-            m_surface = std::move(other.m_surface);
-            m_swapchain = other.m_swapchain;
-            m_format = other.m_format;
-            m_extent = other.m_extent;
-            m_images = std::move(other.m_images);
-            m_currentFrame = other.m_currentFrame;
-            m_imageAvailable = std::move(other.m_imageAvailable);
-            m_inFlightFences = std::move(other.m_inFlightFences);
-            m_renderFinished = std::move(other.m_renderFinished);
-            m_imagesInFlight = std::move(other.m_imagesInFlight);
-
-            other.m_swapchain = VK_NULL_HANDLE;
+        // Handle Minimization: If width or height is 0, pause execution until un-minimized
+        while (newExtent.width == 0 || newExtent.height == 0) {
+            newExtent = getLatestExtent();
         }
 
-        return *this;
+        // Wait for GPU work to complete before tearing down existing resources
+        m_device.waitIdle();
+
+        // Clean up old swapchain resources
+        cleanup();
+
+        m_extent = newExtent;
+
+        // Re-create swapchain resources with updated extent
+        create();
+    }
+
+    VkExtent2D SwapChain::getLatestExtent() const {
+        VkSurfaceCapabilitiesKHR capabilities;
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+            m_device.physical(),
+            m_surface.native(),
+            &capabilities
+        );
+
+        if (capabilities.currentExtent.width != UINT32_MAX) {
+            return capabilities.currentExtent;
+        }
+
+        return m_extent;
     }
 
     VkResult SwapChain::acquireImage(uint32_t &imageIndex) {
-        // 1. Wait for GPU frame completion
         m_inFlightFences[m_currentFrame].wait(UINT64_MAX);
 
-        // 2. Acquire image
         VkResult result = vkAcquireNextImageKHR(
             m_device.native(),
             m_swapchain,
@@ -213,7 +254,6 @@ namespace LavaVK {
             return result;
         }
 
-        // 3. Ensure swapchain image isn't currently in use by an older frame in flight
         if (m_imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
             vkWaitForFences(m_device.native(), 1, &m_imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
         }
@@ -239,9 +279,52 @@ namespace LavaVK {
 
         VkResult result = vkQueuePresentKHR(m_device.getQueue(QueueType::PRESENT).native(), &presentInfo);
 
-        // Advance frame slot
         m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
         return result;
+    }
+
+    SwapChain::SwapChain(SwapChain &&other) noexcept
+        : m_device(other.m_device),
+          m_surface(other.m_surface),
+          m_renderPass(other.m_renderPass),
+          m_swapchain(other.m_swapchain),
+          m_colorFormat(other.m_colorFormat),
+          m_depthFormat(other.m_depthFormat),
+          m_format(other.m_format),
+          m_extent(other.m_extent),
+          m_images(std::move(other.m_images)),
+          m_depthImage(std::move(other.m_depthImage)),
+          m_framebuffers(std::move(other.m_framebuffers)),
+          m_currentFrame(other.m_currentFrame),
+          m_imageAvailable(std::move(other.m_imageAvailable)),
+          m_inFlightFences(std::move(other.m_inFlightFences)),
+          m_renderFinished(std::move(other.m_renderFinished)),
+          m_imagesInFlight(std::move(other.m_imagesInFlight)) {
+        other.m_swapchain = VK_NULL_HANDLE;
+    }
+
+    SwapChain &SwapChain::operator=(SwapChain &&other) noexcept {
+        if (this != &other) {
+            cleanup();
+
+            m_swapchain = other.m_swapchain;
+            m_colorFormat = other.m_colorFormat;
+            m_depthFormat = other.m_depthFormat;
+            m_format = other.m_format;
+            m_extent = other.m_extent;
+            m_images = std::move(other.m_images);
+            m_depthImage = std::move(other.m_depthImage);
+            m_framebuffers = std::move(other.m_framebuffers);
+            m_currentFrame = other.m_currentFrame;
+            m_imageAvailable = std::move(other.m_imageAvailable);
+            m_inFlightFences = std::move(other.m_inFlightFences);
+            m_renderFinished = std::move(other.m_renderFinished);
+            m_imagesInFlight = std::move(other.m_imagesInFlight);
+
+            other.m_swapchain = VK_NULL_HANDLE;
+        }
+
+        return *this;
     }
 } // namespace LavaVK

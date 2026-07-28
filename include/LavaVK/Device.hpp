@@ -3,13 +3,17 @@
 
 #include <vulkan/vulkan.h>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include "Queue.hpp"
 #include "Surface.hpp"
+#include "Sync.hpp"
 
 namespace LavaVK {
+    class CommandBuffer;
+    class CommandPool;
     class Surface;
     enum class QueueType : uint32_t;
     class Instance;
@@ -163,9 +167,49 @@ namespace LavaVK {
         [[nodiscard]] uint32_t getQueueFamily(QueueType type) const;
 
         /**
-         * @brief Convenience helper for graphics queue.
+         * @brief Waits till command pool is finished.
          */
-        [[nodiscard]] const Queue &graphicsQueue() const { return getQueue(QueueType::GRAPHICS); }
+        void waitIdle() const {vkDeviceWaitIdle(native());}
+
+        /**
+         * @brief Return CommandPool of qiven queue type.
+         *
+         * @param queueType Type of command pool to be returned.
+         */
+        [[nodiscard]] CommandPool& getCommandPool(QueueType queueType);
+
+        /**
+         * @brief Submits a CommandBuffer.
+         *
+         * @param queueType Type of the CommandPool.
+         * @param cmdBuffer CommandBuffer reference.
+         * @param waitSemaphores Semaphores to wait.
+         * @param signalSemaphores Semaphores to be signaled.
+         */
+        void submit(
+            QueueType queueType,
+            const CommandBuffer& cmdBuffer,
+            const std::vector<std::reference_wrapper<const Semaphore>>& waitSemaphores = {},
+            const std::vector<VkPipelineStageFlags>& waitStages = {},
+            const std::vector<std::reference_wrapper<const Semaphore>>& signalSemaphores = {},
+            const Fence* fence = nullptr
+        );
+
+        /**
+         * @brief Submits a CommandBuffer by index in CommandPool.
+         * @param queueType Type of the CommandPool.
+         * @param commandBufferIndex CommandBuffer index.
+         * @param waitSemaphores Semaphores to wait.
+         * @param signalSemaphores Semaphores to be signaled.
+         */
+        void submit(
+            QueueType queueType,
+            size_t commandBufferIndex,
+            const std::vector<std::reference_wrapper<const Semaphore>>& waitSemaphores = {},
+            const std::vector<VkPipelineStageFlags>& waitStages = {},
+            const std::vector<std::reference_wrapper<const Semaphore>>& signalSemaphores = {},
+            const Fence* fence = nullptr
+        );
 
     private:
         VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
@@ -173,6 +217,7 @@ namespace LavaVK {
 
         std::unordered_map<QueueType, Queue> m_queues;
         std::unordered_map<QueueType, uint32_t> m_queueFamilies;
+        std::unordered_map<QueueType, std::unique_ptr<CommandPool>> m_commandPools;
     };
 } // namespace LavaVK
 

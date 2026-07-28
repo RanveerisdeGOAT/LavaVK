@@ -230,7 +230,6 @@ namespace LavaVK {
                    const Surface *surface) {
         m_physicalDevice = gpu_hardware.native();
 
-        // 1. Resolve Queue Families and Deduplicate Unique Family Indices
         std::set<uint32_t> uniqueFamilies;
 
         for (auto type: requestedQueues) {
@@ -240,7 +239,7 @@ namespace LavaVK {
             uniqueFamilies.insert(family);
         }
 
-        // 2. Prepare Queue Create Infos
+
         float priority = 1.0f;
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 
@@ -253,13 +252,11 @@ namespace LavaVK {
             queueCreateInfos.push_back(queueInfo);
         }
 
-        // 3. Create Logical Device
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-        // Dynamically enable swapchain extension if a surface is provided
         std::vector<const char *> extensions;
         if (surface != nullptr) {
             extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -272,15 +269,28 @@ namespace LavaVK {
             LAVAVK_ERROR("[LavaVK ERROR] Failed to create logical device.");
         }
 
-        // 4. Instantiate Queue Objects
         for (auto type: requestedQueues) {
             m_queues[type] = Queue(*this, m_queueFamilies[type]);
+        }
+
+        for (QueueType queueType: requestedQueues) {
+            // Avoid creating duplicate pools if the same QueueType is passed twice
+            if (m_commandPools.find(queueType) == m_commandPools.end()) {
+                m_commandPools[queueType] = std::make_unique<CommandPool>(
+                    *this,
+                    queueType,
+                    false,
+                    true
+                );
+            }
         }
     }
 
     Device::~Device() {
-        if (m_device != VK_NULL_HANDLE)
+        if (m_device != VK_NULL_HANDLE) {
+            m_commandPools.clear();
             vkDestroyDevice(m_device, nullptr);
+        }
     }
 
     Device::Device(Device &&other) noexcept
@@ -327,5 +337,70 @@ namespace LavaVK {
         if (it == m_queueFamilies.end())
             LAVAVK_ERROR("Requested queue family not initialized on this device.");
         return it->second;
+    }
+
+    CommandPool &Device::getCommandPool(QueueType queueType) {
+        // Lazy-allocate pool if it doesn't exist yet for this queue
+        if (m_commandPools.find(queueType) == m_commandPools.end()) {
+            m_commandPools[queueType] = std::make_unique<CommandPool>(
+                *this,
+                queueType,
+                false, // transient
+                true // resetIndividualBuffers
+            );
+        }
+        return *m_commandPools[queueType];
+    }
+
+    void Device::submit(
+        QueueType queueType,
+        const CommandBuffer &cmdBuffer,
+        const std::vector<std::reference_wrapper<const Semaphore> > &waitSemaphores,
+        const std::vector<VkPipelineStageFlags> &waitStages,
+        const std::vector<std::reference_wrapper<const Semaphore> > &signalSemaphores,
+        const Fence *fence) {
+        VkCommandBuffer rawCmd = cmdBuffer.native();
+
+        VkSubmitInfo submitInfo{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &rawCmd;
+
+        // Convert wrapper LavaVK::Semaphore references to raw VkSemaphore handles
+        std::vector<VkSemaphore> rawWaitSemaphores;
+        rawWaitSemaphores.reserve(waitSemaphores.size());
+        for (const auto &semRef: waitSemaphores) {
+            rawWaitSemaphores.push_back(semRef.get().native());
+        }
+
+        std::vector<VkSemaphore> rawSignalSemaphores;
+        rawSignalSemaphores.reserve(signalSemaphores.size());
+        for (const auto &semRef: signalSemaphores) {
+            rawSignalSemaphores.push_back(semRef.get().native());
+        }
+
+        submitInfo.waitSemaphoreCount = static_cast<uint32_t>(rawWaitSemaphores.size());
+        submitInfo.pWaitSemaphores = rawWaitSemaphores.data();
+        submitInfo.pWaitDstStageMask = waitStages.data();
+
+        submitInfo.signalSemaphoreCount = static_cast<uint32_t>(rawSignalSemaphores.size());
+        submitInfo.pSignalSemaphores = rawSignalSemaphores.data();
+
+        VkQueue queue = getQueue(queueType).native();
+        VkFence rawFence = fence ? fence->native() : VK_NULL_HANDLE;
+
+        if (vkQueueSubmit(queue, 1, &submitInfo, rawFence) != VK_SUCCESS) {
+            throw std::runtime_error("Device::submit - Failed to submit command buffer!");
+        }
+    }
+
+    void Device::submit(
+        QueueType queueType,
+        size_t commandBufferIndex,
+        const std::vector<std::reference_wrapper<const Semaphore> > &waitSemaphores,
+        const std::vector<VkPipelineStageFlags> &waitStages,
+        const std::vector<std::reference_wrapper<const Semaphore> > &signalSemaphores,
+        const Fence *fence) {
+        const CommandBuffer &cmdBuffer = getCommandPool(queueType).retrieve(commandBufferIndex);
+        submit(queueType, cmdBuffer, waitSemaphores, waitStages, signalSemaphores, fence);
     }
 } // namespace LavaVK

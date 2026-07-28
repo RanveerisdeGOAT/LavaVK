@@ -423,6 +423,16 @@ namespace LavaVK {
         RenderPass &operator=(const RenderPass &) = delete;
 
         /**
+         * @brief Get color format.
+         */
+        VkFormat getColorFormat() const { return m_colorFormat; }
+
+        /**
+         * @brief Get depth format.
+         */
+        VkFormat getDepthFormat() const { return m_depthFormat; }
+
+        /**
          * @brief Gets the native Vulkan `VkRenderPass` handle.
          * @return Native VkRenderPass handle.
          */
@@ -431,10 +441,12 @@ namespace LavaVK {
     private:
         Device &m_device;
         VkRenderPass m_renderPass{VK_NULL_HANDLE};
+        VkFormat m_depthFormat{VK_FORMAT_UNDEFINED};
+        VkFormat m_colorFormat{VK_FORMAT_UNDEFINED};
     };
 
     /** @brief Primitive assembly topology type. */
-    enum class PrimitiveTopology : uint32_t {
+    enum class Topology : uint32_t {
         POINTS = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
         LINES = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
         LINE_STRIP = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
@@ -514,7 +526,7 @@ namespace LavaVK {
         PipelineLayout *layout = nullptr; /**< Required pipeline layout configuration */
         RenderPass *renderPass = nullptr; /**< Compatible render pass */
 
-        PrimitiveTopology topology = PrimitiveTopology::TRIANGLES; /**< Primitive topology type */
+        Topology topology = Topology::TRIANGLES; /**< Primitive topology type */
 
         PolygonMode polygonMode = PolygonMode::FILL; /**< Rasterization mode */
         CullMode cullMode = CullMode::BACK; /**< Face culling mode */

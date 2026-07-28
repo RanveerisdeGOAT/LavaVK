@@ -45,6 +45,7 @@ add_library(LavaVK
         src/Pipeline.cpp
         src/SwapChain.cpp
         src/Buffer.cpp
+        src/Command.cpp
 )
 
 target_include_directories(LavaVK
