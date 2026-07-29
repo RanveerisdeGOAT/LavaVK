@@ -7,6 +7,8 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+#include "Pipeline.hpp"
+
 namespace LavaVK {
     class Framebuffer;
     class RenderPass;
@@ -86,7 +88,7 @@ namespace LavaVK {
          */
         void beginRenderPass(
             const RenderPass &renderPass,
-            const Framebuffer& framebuffer,
+            const Framebuffer &framebuffer,
             VkExtent2D extent,
             const std::array<float, 4> &clearColor = {0.1f, 0.1f, 0.1f, 1.0f},
             float clearDepth = 1.0f,
@@ -106,10 +108,10 @@ namespace LavaVK {
          * @param drawCommands Lambda callback containing draw calls and pipeline bindings.
          */
         void record(
-        const RenderPass& renderPass,
-        const Framebuffer& framebuffer,
-        VkExtent2D extent,
-        const std::function<void(CommandBuffer &)> &drawCommands);
+            const RenderPass &renderPass,
+            const Framebuffer &framebuffer,
+            VkExtent2D extent,
+            const std::function<void(CommandBuffer &)> &drawCommands);
 
         /**
          * @brief Ends the active render pass.
@@ -136,6 +138,56 @@ namespace LavaVK {
          */
         void drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0,
                          int32_t vertexOffset = 0, uint32_t firstInstance = 0) const;
+
+        /**
+     * @brief Pushes constants to a pipeline layout.
+     */
+        template<typename T>
+        void pushConstants(
+            const PipelineLayout &layout,
+            ShaderStageFlags stageFlags,
+            const T &data,
+            uint32_t offset = 0
+        ) {
+            vkCmdPushConstants(
+                m_buffer,
+                layout.native(),
+                stageFlags,
+                offset,
+                sizeof(T),
+                &data
+            );
+        }
+
+        /**
+     * @brief Bind a vertex buffer to a specific binding slot.
+     */
+        void bindVertexBuffer(uint32_t binding, const Buffer &vertexBuffer, VkDeviceSize offset = 0) const;
+
+        /**
+         * @brief Convenience overload defaulting to binding 0.
+         */
+        void bindVertexBuffer(const Buffer &vertexBuffer, VkDeviceSize offset = 0) {
+            bindVertexBuffer(0, vertexBuffer, offset);
+        }
+
+        /**
+         * @brief Bind multiple vertex buffers at once starting at firstBinding.
+         */
+        void bindVertexBuffers(
+            uint32_t firstBinding,
+            const std::vector<const Buffer *> &buffers,
+            const std::vector<VkDeviceSize> &offsets
+        ) const;
+
+        /**
+         * @brief Binds an index buffer (defaults to VK_INDEX_TYPE_UINT16).
+         */
+        void bindIndexBuffer(
+            const Buffer &indexBuffer,
+            VkIndexType indexType = VK_INDEX_TYPE_UINT16,
+            VkDeviceSize offset = 0
+        ) const;
 
         /**
          * @brief Returns the underlying Vulkan VkCommandBuffer handle.

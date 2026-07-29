@@ -7,7 +7,12 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+#include "Buffer.hpp"
 #include "Instance.hpp"
+
+namespace LavaVK {
+    class VertexLayout;
+}
 
 namespace LavaVK {
     class Format;
@@ -24,6 +29,30 @@ namespace LavaVK {
         Fragment, /**< Fragment/Pixel shader (.frag or SPIR-V) */
         Compute /**< Compute shader (.comp or SPIR-V) */
     };
+
+    enum class ShaderStage : VkShaderStageFlags {
+        None     = 0,
+        Vertex   = VK_SHADER_STAGE_VERTEX_BIT,
+        Fragment = VK_SHADER_STAGE_FRAGMENT_BIT,
+        Compute  = VK_SHADER_STAGE_COMPUTE_BIT,
+        Geometry = VK_SHADER_STAGE_GEOMETRY_BIT,
+        TessellationControl = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,
+        TesselationEvaluation = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
+        RayGeneration = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+        All      = VK_SHADER_STAGE_ALL,
+    };
+
+    // Bitwise OR operator overload to allow combining stages
+    inline ShaderStage operator|(ShaderStage a, ShaderStage b) {
+        return static_cast<ShaderStage>(
+            static_cast<VkShaderStageFlags>(a) | static_cast<VkShaderStageFlags>(b)
+        );
+    }
+
+        inline ShaderStage& operator|=(ShaderStage& a, ShaderStage b) {
+            a = a | b;
+            return a;
+        }
 
     /**
      * @brief Encapsulates a Vulkan shader module (`VkShaderModule`).
@@ -531,6 +560,7 @@ namespace LavaVK {
 
         PipelineLayout *layout = nullptr; /**< Required pipeline layout configuration */
         RenderPass *renderPass = nullptr; /**< Compatible render pass */
+        VertexLayout *vertexLayout = nullptr;
 
         Topology topology = Topology::TRIANGLES; /**< Primitive topology type */
 

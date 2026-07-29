@@ -59,7 +59,7 @@ public:
      * @param timeout Maximum wait time in nanoseconds.
      * @return Vulkan status code.
      */
-    [[nodiscard]]
+
     Result wait(uint64_t timeout = UINT64_MAX) const;
 
     /**
@@ -67,7 +67,7 @@ public:
      *
      * @return Vulkan status code.
      */
-    [[nodiscard]]
+
     Result reset() const;
 
     /**

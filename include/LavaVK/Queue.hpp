@@ -7,11 +7,9 @@
 #include <vector>
 
 namespace LavaVK {
-    class Device;
-}
-
-namespace LavaVK {
     class Fence;
+
+    class Device;
 
     /**
      * @brief Supported hardware queue operation types matching Vulkan queue flags.

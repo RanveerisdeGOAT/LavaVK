@@ -43,10 +43,10 @@ namespace LavaVK {
     }
 
     void CommandBuffer::beginRenderPass(
-        const RenderPass& renderPass,
-        const Framebuffer& framebuffer,
+        const RenderPass &renderPass,
+        const Framebuffer &framebuffer,
         VkExtent2D extent,
-        const std::array<float, 4>& clearColor,
+        const std::array<float, 4> &clearColor,
         float clearDepth,
         uint32_t clearStencil,
         bool autoSetViewportAndScissor
@@ -68,11 +68,10 @@ namespace LavaVK {
     }
 
     void CommandBuffer::record(
-        const RenderPass& renderPass,
-        const Framebuffer& framebuffer,
+        const RenderPass &renderPass,
+        const Framebuffer &framebuffer,
         VkExtent2D extent,
-        const std::function<void(CommandBuffer&)>& drawCommands)
-    {
+        const std::function<void(CommandBuffer &)> &drawCommands) {
         reset();
         begin();
         beginRenderPass(renderPass, framebuffer, extent);
@@ -99,7 +98,8 @@ namespace LavaVK {
     }
 
     void CommandBuffer::setViewport(VkExtent2D extent, float minDepth, float maxDepth) const {
-        setViewport(static_cast<float>(extent.width), static_cast<float>(extent.height), 0.0f, 0.0f, minDepth, maxDepth);
+        setViewport(static_cast<float>(extent.width), static_cast<float>(extent.height), 0.0f, 0.0f, minDepth,
+                    maxDepth);
     }
 
     void CommandBuffer::setViewport(float width, float height, float x, float y, float minDepth, float maxDepth) const {
@@ -221,5 +221,38 @@ namespace LavaVK {
         if (vkResetCommandPool(m_device.native(), m_pool, 0) != VK_SUCCESS) {
             throw std::runtime_error("Failed to reset command pool!");
         }
+    }
+
+    void CommandBuffer::bindVertexBuffer(uint32_t binding, const Buffer &vertexBuffer, VkDeviceSize offset) const {
+        VkBuffer buffer = vertexBuffer.native();
+        vkCmdBindVertexBuffers(m_buffer, binding, 1, &buffer, &offset);
+    }
+
+    void CommandBuffer::bindIndexBuffer(
+        const Buffer &indexBuffer,
+        VkIndexType indexType,
+        VkDeviceSize offset
+    ) const {
+        vkCmdBindIndexBuffer(m_buffer, indexBuffer.native(), offset, indexType);
+    }
+
+    void CommandBuffer::bindVertexBuffers(
+        uint32_t firstBinding,
+        const std::vector<const Buffer *> &buffers,
+        const std::vector<VkDeviceSize> &offsets
+    ) const {
+        std::vector<VkBuffer> rawBuffers;
+        rawBuffers.reserve(buffers.size());
+        for (const auto *buf: buffers) {
+            rawBuffers.push_back(buf->native());
+        }
+
+        vkCmdBindVertexBuffers(
+            m_buffer,
+            firstBinding,
+            static_cast<uint32_t>(rawBuffers.size()),
+            rawBuffers.data(),
+            offsets.data()
+        );
     }
 } // namespace LavaVK

@@ -42,9 +42,9 @@ Currently in development.
 - [x] Automatic GLSSL → SPIR-V compilation using shaderc
 - [x] Supports loading SPIR-V binaries directly
 - [x] Compatible with any Window API
+- [x] Buffers
 ---
-### Planned Features
-- [ ] Buffers:
+### Planned Features:
 - [ ] Textures
 - [ ] Compute Pipelines
 - [ ] Descriptor indexing

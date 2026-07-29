@@ -1,11 +1,14 @@
 #ifndef LAVAVK_BUFFER_HPP
 #define LAVAVK_BUFFER_HPP
 
+#include <vector>
 #include <vulkan/vulkan.h>
-#include "Pipeline.hpp"
+
+#include "Instance.hpp"
 
 namespace LavaVK {
     class Device;
+    class RenderPass;
 
     /**
      * @brief Specifies the dimensionality of an image.
@@ -272,6 +275,178 @@ namespace LavaVK {
         VkFramebuffer m_framebuffer = VK_NULL_HANDLE;
         std::vector<Image *> m_attachments;
         Device &m_device;
+    };
+
+    enum class BufferUsage : VkBufferUsageFlags {
+        Vertex = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        Index = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        Uniform = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        Storage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+
+        TransferSrc = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        TransferDst = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    };
+
+    inline BufferUsage operator|(BufferUsage a, BufferUsage b) {
+        return static_cast<BufferUsage>(
+            static_cast<VkBufferUsageFlags>(a) |
+            static_cast<VkBufferUsageFlags>(b));
+    }
+
+    enum class MemoryUsage {
+        GPU, // Device local
+        CPU, // Host visible
+        CPU_TO_GPU, // Upload buffers
+        GPU_TO_CPU // Readback
+    };
+
+    struct BufferCreateInfo {
+        size_t size = 0;
+
+        BufferUsage usage =
+                BufferUsage::Vertex;
+
+        MemoryUsage memory =
+                MemoryUsage::GPU;
+    };
+
+    class Buffer {
+    public:
+        Buffer() = default;
+
+        Buffer(
+            Device &device,
+            const BufferCreateInfo &info);
+
+        ~Buffer();
+
+        Buffer(const Buffer &) = delete;
+
+        Buffer &operator=(const Buffer &) = delete;
+
+        Buffer(Buffer &&) noexcept;
+
+        Buffer &operator=(Buffer &&) noexcept;
+
+        void *map();
+
+        void unmap();
+
+        void upload(const void *data, size_t bytes);
+
+        template<typename T>
+        void upload(const T &object) {
+            upload(&object, sizeof(T));
+        }
+
+        template<typename T>
+        void upload(const std::vector<T> &data) {
+            upload(data.data(), data.size() * sizeof(T));
+        }
+
+        VkBuffer native() const { return m_buffer; }
+
+        size_t size() const { return m_size; }
+
+        BufferUsage buffer() const { return m_usage; }
+
+        MemoryUsage memory() const { return m_memoryUsage; }
+
+    private:
+        Device *m_device = nullptr;
+
+        VkBuffer m_buffer = VK_NULL_HANDLE;
+
+        VkDeviceMemory m_memory = VK_NULL_HANDLE;
+
+        void *m_mapped = nullptr;
+
+        size_t m_size = 0;
+
+        BufferUsage m_usage;
+
+        MemoryUsage m_memoryUsage;
+
+        static uint32_t findMemoryType(VkPhysicalDevice physical, uint32_t uint32, VkFlags properties);
+    };
+
+    template<auto MemberPtr>
+    struct MemberTraits;
+
+    template<typename M, typename S, M S::* MemberPtr>
+    struct MemberTraits<MemberPtr> {
+        using MemberType = M;
+        using StructType = S;
+
+        // Calculates byte offset of the member inside the struct
+        static size_t offset() {
+            alignas(S) char buffer[sizeof(S)];
+            S *dummy = reinterpret_cast<S *>(buffer);
+            return static_cast<size_t>(
+                reinterpret_cast<const char *>(&(dummy->*MemberPtr)) - buffer
+            );
+        }
+    };
+
+    class VertexLayout {
+    public:
+        template<typename Vertex>
+        static VertexLayout create(uint32_t binding = 0, VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX) {
+            VertexLayout layout;
+            layout.m_stride = sizeof(Vertex);
+            layout.m_bindingIndex = binding;
+
+            VkVertexInputBindingDescription bindingDescription{};
+            bindingDescription.binding = binding;
+            bindingDescription.stride = static_cast<uint32_t>(sizeof(Vertex));
+            bindingDescription.inputRate = inputRate;
+
+            layout.m_bindings.push_back(bindingDescription);
+
+            return layout;
+        }
+
+        template<auto MemberPtr>
+        VertexLayout &attribute(uint32_t location, Format format) {
+            using Traits = MemberTraits<MemberPtr>;
+
+            VkVertexInputAttributeDescription attr{};
+            attr.location = location;
+            attr.binding  = m_bindingIndex; // Uses the configured binding slot!
+            attr.format   = static_cast<VkFormat>(format);
+            attr.offset   = static_cast<uint32_t>(Traits::offset());
+
+            m_attributes.push_back(attr);
+
+            return *this;
+        }
+
+        [[nodiscard]]
+        uint32_t bindingIndex() const {
+            return m_bindingIndex;
+        }
+
+        [[nodiscard]]
+        uint32_t stride() const {
+            return m_stride;
+        }
+
+        [[nodiscard]]
+        const std::vector<VkVertexInputBindingDescription> &bindings() const {
+            return m_bindings;
+        }
+
+        [[nodiscard]]
+        const std::vector<VkVertexInputAttributeDescription> &attributes() const {
+            return m_attributes;
+        }
+
+    private:
+        uint32_t m_stride = 0;
+        uint32_t m_bindingIndex = 0;
+
+        std::vector<VkVertexInputBindingDescription> m_bindings;
+        std::vector<VkVertexInputAttributeDescription> m_attributes;
     };
 } // namespace LavaVK
 
