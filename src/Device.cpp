@@ -353,51 +353,60 @@ namespace LavaVK {
     }
 
     void Device::submit(
-        QueueType queueType,
-        const CommandBuffer &cmdBuffer,
-        const std::vector<std::reference_wrapper<const Semaphore> > &waitSemaphores,
-        const std::vector<VkPipelineStageFlags> &waitStages,
-        const std::vector<std::reference_wrapper<const Semaphore> > &signalSemaphores,
-        const Fence *fence) {
-        VkCommandBuffer rawCmd = cmdBuffer.native();
+    QueueType queueType,
+    const CommandBuffer &cmdBuffer,
+    const std::vector<std::reference_wrapper<const Semaphore>> &waitSemaphores,
+    const std::vector<PipelineStage> &waitStages, // Changed to vector
+    const std::vector<std::reference_wrapper<const Semaphore>> &signalSemaphores,
+    const Fence *fence) {
 
-        VkSubmitInfo submitInfo{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &rawCmd;
+    VkCommandBuffer rawCmd = cmdBuffer.native();
 
-        // Convert wrapper LavaVK::Semaphore references to raw VkSemaphore handles
-        std::vector<VkSemaphore> rawWaitSemaphores;
-        rawWaitSemaphores.reserve(waitSemaphores.size());
-        for (const auto &semRef: waitSemaphores) {
-            rawWaitSemaphores.push_back(semRef.get().native());
-        }
+    VkSubmitInfo submitInfo{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &rawCmd;
 
-        std::vector<VkSemaphore> rawSignalSemaphores;
-        rawSignalSemaphores.reserve(signalSemaphores.size());
-        for (const auto &semRef: signalSemaphores) {
-            rawSignalSemaphores.push_back(semRef.get().native());
-        }
-
-        submitInfo.waitSemaphoreCount = static_cast<uint32_t>(rawWaitSemaphores.size());
-        submitInfo.pWaitSemaphores = rawWaitSemaphores.data();
-        submitInfo.pWaitDstStageMask = waitStages.data();
-
-        submitInfo.signalSemaphoreCount = static_cast<uint32_t>(rawSignalSemaphores.size());
-        submitInfo.pSignalSemaphores = rawSignalSemaphores.data();
-
-        VkQueue queue = getQueue(queueType).native();
-        VkFence rawFence = fence ? fence->native() : VK_NULL_HANDLE;
-
-        if (vkQueueSubmit(queue, 1, &submitInfo, rawFence) != VK_SUCCESS) {
-            throw std::runtime_error("Device::submit - Failed to submit command buffer!");
-        }
+    // Convert wait semaphores
+    std::vector<VkSemaphore> rawWaitSemaphores;
+    rawWaitSemaphores.reserve(waitSemaphores.size());
+    for (const auto &semRef : waitSemaphores) {
+        rawWaitSemaphores.push_back(semRef.get().native());
     }
+
+    // Convert wait stages enum to raw VkPipelineStageFlags
+    std::vector<VkPipelineStageFlags> rawWaitStages;
+    rawWaitStages.reserve(waitStages.size());
+    for (const auto &stage : waitStages) {
+        rawWaitStages.push_back(static_cast<VkPipelineStageFlags>(stage));
+    }
+
+    // Convert signal semaphores
+    std::vector<VkSemaphore> rawSignalSemaphores;
+    rawSignalSemaphores.reserve(signalSemaphores.size());
+    for (const auto &semRef : signalSemaphores) {
+        rawSignalSemaphores.push_back(semRef.get().native());
+    }
+
+    submitInfo.waitSemaphoreCount = static_cast<uint32_t>(rawWaitSemaphores.size());
+    submitInfo.pWaitSemaphores    = rawWaitSemaphores.data();
+    submitInfo.pWaitDstStageMask  = rawWaitStages.data(); // Pass pointer to contiguous flags array
+
+    submitInfo.signalSemaphoreCount = static_cast<uint32_t>(rawSignalSemaphores.size());
+    submitInfo.pSignalSemaphores   = rawSignalSemaphores.data();
+
+    VkQueue queue = getQueue(queueType).native();
+    VkFence rawFence = fence ? fence->native() : VK_NULL_HANDLE;
+
+    if (vkQueueSubmit(queue, 1, &submitInfo, rawFence) != VK_SUCCESS) {
+        throw std::runtime_error("Device::submit - Failed to submit command buffer!");
+    }
+}
 
     void Device::submit(
         QueueType queueType,
         size_t commandBufferIndex,
         const std::vector<std::reference_wrapper<const Semaphore> > &waitSemaphores,
-        const std::vector<VkPipelineStageFlags> &waitStages,
+        const std::vector<PipelineStage> &waitStages,
         const std::vector<std::reference_wrapper<const Semaphore> > &signalSemaphores,
         const Fence *fence) {
         const CommandBuffer &cmdBuffer = getCommandPool(queueType).retrieve(commandBufferIndex);

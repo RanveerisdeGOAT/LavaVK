@@ -40,11 +40,11 @@ namespace LavaVK {
         return *this;
     }
 
-    VkResult Fence::wait(uint64_t timeout) const {
+    Result Fence::wait(uint64_t timeout) const {
         return vkWaitForFences(m_device, 1, &m_fence, VK_TRUE, timeout);
     }
 
-    VkResult Fence::reset() const {
+    Result Fence::reset() const {
         return vkResetFences(m_device, 1, &m_fence);
     }
 

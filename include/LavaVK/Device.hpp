@@ -12,6 +12,10 @@
 #include "Sync.hpp"
 
 namespace LavaVK {
+    enum class PipelineStage : VkPipelineStageFlags;
+}
+
+namespace LavaVK {
     class CommandBuffer;
     class CommandPool;
     class Surface;
@@ -190,7 +194,7 @@ namespace LavaVK {
             QueueType queueType,
             const CommandBuffer& cmdBuffer,
             const std::vector<std::reference_wrapper<const Semaphore>>& waitSemaphores = {},
-            const std::vector<VkPipelineStageFlags>& waitStages = {},
+            const std::vector<PipelineStage>& waitStages = {},
             const std::vector<std::reference_wrapper<const Semaphore>>& signalSemaphores = {},
             const Fence* fence = nullptr
         );
@@ -206,7 +210,7 @@ namespace LavaVK {
             QueueType queueType,
             size_t commandBufferIndex,
             const std::vector<std::reference_wrapper<const Semaphore>>& waitSemaphores = {},
-            const std::vector<VkPipelineStageFlags>& waitStages = {},
+            const std::vector<PipelineStage> &waitStages = {},
             const std::vector<std::reference_wrapper<const Semaphore>>& signalSemaphores = {},
             const Fence* fence = nullptr
         );

@@ -76,18 +76,18 @@ namespace LavaVK {
          * 3. Ensures the acquired swapchain image is not still in flight from an earlier frame.
          * 4. Resets the current frame's in-flight fence.
          * @param[out] imageIndex Variable populated with the index of the acquired swapchain image.
-         * @return VkResult Status code (e.g., VK_SUCCESS or VK_ERROR_OUT_OF_DATE_KHR).
+         * @return Result Status code.
          */
-        VkResult acquireImage(uint32_t &imageIndex);
+        Result acquireImage(uint32_t &imageIndex);
 
         /**
          * @brief Submits the acquired swapchain image to the presentation engine and advances the frame slot.
          * Waits on the `renderFinished` semaphore corresponding to @p imageIndex, submits the presentation
          * request to the queue, and advances `m_currentFrame` modulo `MAX_FRAMES_IN_FLIGHT`.
          * @param imageIndex The index of the swapchain image to present.
-         * @return VkResult Status code (e.g., VK_SUCCESS, VK_SUBOPTIMAL_KHR, or VK_ERROR_OUT_OF_DATE_KHR).
+         * @return Result Status code.
          */
-        VkResult present(uint32_t imageIndex);
+        Result present(uint32_t imageIndex);
 
         /**
          * @brief Gets the total number of images retrieved from the Vulkan swapchain.

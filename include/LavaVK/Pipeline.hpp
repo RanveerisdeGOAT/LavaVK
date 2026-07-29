@@ -7,6 +7,12 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+#include "Instance.hpp"
+
+namespace LavaVK {
+    class Format;
+}
+
 namespace LavaVK {
     class Device;
 
@@ -398,11 +404,11 @@ namespace LavaVK {
         /**
          * @brief Helper constructor for a standard single-subpass color + depth render pass.
          * * @param device Reference to the LavaVK logical device.
-         * @param colorFormat Vulkan format for the color attachment.
-         * @param depthFormat Vulkan format for depth attachment (`VK_FORMAT_UNDEFINED` to disable depth).
+         * @param colorFormat Format for the color attachment.
+         * @param depthFormat Format for depth attachment (`VK_FORMAT_UNDEFINED` to disable depth).
          * @param samples Multisample count flag (defaults to 1 sample).
          */
-        RenderPass(Device &device, VkFormat colorFormat, VkFormat depthFormat = VK_FORMAT_UNDEFINED,
+        RenderPass(Device &device, Format colorFormat, Format depthFormat = Format(ChannelOrder::Undefined, BitDepth::Undefined, NumericType::Undefined),
                    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
 
         /**
@@ -602,6 +608,34 @@ namespace LavaVK {
         Device &m_device;
         VkPipeline m_pipeline = VK_NULL_HANDLE;
     };
+
+    enum class PipelineStage : VkPipelineStageFlags {
+        None                   = 0,
+        TopOfPipe              = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        DrawIndirect           = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+        VertexInput            = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+        VertexShader           = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+        TessellationControl    = VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT,
+        TessellationEvaluation = VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT,
+        GeometryShader         = VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT,
+        FragmentShader         = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        EarlyFragmentTests     = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+        LateFragmentTests      = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+        ColorAttachmentOutput  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        ComputeShader          = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        Transfer               = VK_PIPELINE_STAGE_TRANSFER_BIT,
+        BottomOfPipe           = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        Host                   = VK_PIPELINE_STAGE_HOST_BIT,
+        AllGraphics            = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        AllCommands            = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+    };
+
+    inline PipelineStage operator|(PipelineStage lhs, PipelineStage rhs) {
+        return static_cast<PipelineStage>(
+            static_cast<VkPipelineStageFlags>(lhs) | static_cast<VkPipelineStageFlags>(rhs)
+        );
+    }
+
 } // namespace LavaVK
 
 #endif // LAVAVK_PIPELINE_HPP

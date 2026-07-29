@@ -239,7 +239,7 @@ namespace LavaVK {
         return m_extent;
     }
 
-    VkResult SwapChain::acquireImage(uint32_t &imageIndex) {
+    Result SwapChain::acquireImage(uint32_t &imageIndex) {
         m_inFlightFences[m_currentFrame].wait(UINT64_MAX);
 
         VkResult result = vkAcquireNextImageKHR(
@@ -264,7 +264,7 @@ namespace LavaVK {
         return result;
     }
 
-    VkResult SwapChain::present(uint32_t imageIndex) {
+    Result SwapChain::present(uint32_t imageIndex) {
         VkSemaphore waitSemaphores[] = {m_renderFinished[imageIndex].native()};
 
         VkPresentInfoKHR presentInfo{};

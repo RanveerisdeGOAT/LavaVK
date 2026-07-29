@@ -202,11 +202,11 @@ namespace LavaVK {
     }
 
 
-    RenderPass::RenderPass(Device &device, VkFormat colorFormat, VkFormat depthFormat, VkSampleCountFlagBits samples)
-        : m_device(device), m_colorFormat(colorFormat), m_depthFormat(depthFormat) {
+    RenderPass::RenderPass(Device &device, Format colorFormat, Format depthFormat, VkSampleCountFlagBits samples)
+        : m_device(device), m_colorFormat(colorFormat.native()), m_depthFormat(depthFormat.native()) {
         // Color Attachment
         VkAttachmentDescription colorAttachment{};
-        colorAttachment.format = colorFormat;
+        colorAttachment.format = colorFormat.native();
         colorAttachment.samples = samples;
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -221,7 +221,7 @@ namespace LavaVK {
 
         // Depth Attachment
         VkAttachmentDescription depthAttachment{};
-        depthAttachment.format = depthFormat;
+        depthAttachment.format = depthFormat.native();
         depthAttachment.samples = samples;
         depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -239,7 +239,7 @@ namespace LavaVK {
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &colorAttachmentRef;
-        subpass.pDepthStencilAttachment = (depthFormat != VK_FORMAT_UNDEFINED) ? &depthAttachmentRef : nullptr;
+        subpass.pDepthStencilAttachment = (!depthFormat.isUndefined()) ? &depthAttachmentRef : nullptr;
 
         // Subpass Dependency
         VkSubpassDependency dependency{};

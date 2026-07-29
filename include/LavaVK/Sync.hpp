@@ -4,6 +4,8 @@
 #include <vulkan/vulkan.h>
 #include <cstdint>
 
+#include "Instance.hpp"
+
 namespace LavaVK {
 
 class Device;
@@ -58,7 +60,7 @@ public:
      * @return Vulkan status code.
      */
     [[nodiscard]]
-    VkResult wait(uint64_t timeout = UINT64_MAX) const;
+    Result wait(uint64_t timeout = UINT64_MAX) const;
 
     /**
      * @brief Resets the fence to the unsignaled state.
@@ -66,7 +68,7 @@ public:
      * @return Vulkan status code.
      */
     [[nodiscard]]
-    VkResult reset() const;
+    Result reset() const;
 
     /**
      * @brief Returns the native Vulkan fence.
