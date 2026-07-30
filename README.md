@@ -1,4 +1,6 @@
-# LavaVK 1.0.0
+# LavaVK 0.9.0-indev
+
+> Currently in development.
 
 A modern, user-friendly C++ wrapper around the Vulkan graphics API.
 
@@ -23,8 +25,6 @@ There are no custom rendering abstractions or engine architecture imposed on use
 ---
 
 ## Features
-
-Currently in development.
 
 ### Current Features:
 
