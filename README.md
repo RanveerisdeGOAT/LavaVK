@@ -58,6 +58,7 @@ Currently in development.
 - Vulkan SDK Download: https://vulkan.lunarg.com/
 - shaderc (included in repo)
 - GLM (included in repo)
+- stbi_image (included in repo)
 
 ## Installation
 ```bash

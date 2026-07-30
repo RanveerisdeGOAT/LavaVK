@@ -60,5 +60,6 @@ SOFTWARE.
 #include "Command.hpp"
 #include "Shader.hpp"
 #include "Descriptor.hpp"
+#include "Texture.hpp"
 
 #endif //LAVAVK_LAVAVK_H

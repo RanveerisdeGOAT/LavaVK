@@ -396,7 +396,7 @@ namespace LavaVK {
         VkFence rawFence = fence ? fence->native() : VK_NULL_HANDLE;
 
         if (vkQueueSubmit(queue, 1, &submitInfo, rawFence) != VK_SUCCESS) {
-            throw std::runtime_error("Device::submit - Failed to submit command buffer!");
+            LAVAVK_ERROR("Device::submit - Failed to submit command buffer!");
         }
     }
 

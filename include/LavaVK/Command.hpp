@@ -259,6 +259,18 @@ namespace LavaVK {
         ) const;
 
         /**
+         * @brief Bind descriptor sets.
+         * @param layout The LavaVK #PipelineLayout.
+         * @param descriptor_sets The list of descriptor sets to bind.
+         * @param first_set The first set
+         */
+        void bindDescriptorSets(
+            const PipelineLayout &layout,
+            PipelineBindPoint pipeline_bind_point,
+            const std::vector<VkDescriptorSet> &descriptor_sets,
+            uint32_t first_set = 0) const;
+
+        /**
          * @brief Returns the underlying Vulkan VkCommandBuffer handle.
          * @return The native `VkCommandBuffer` handle, or `VK_NULL_HANDLE` if unallocated.
          */

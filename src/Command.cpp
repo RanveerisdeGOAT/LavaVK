@@ -143,7 +143,7 @@ namespace LavaVK {
         poolInfo.flags = flags;
 
         if (vkCreateCommandPool(m_device.native(), &poolInfo, nullptr, &m_pool) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create command pool!");
+            LAVAVK_ERROR("Failed to create command pool!");
         }
     }
 
@@ -188,7 +188,7 @@ namespace LavaVK {
         allocInfo.commandBufferCount = count;
 
         if (vkAllocateCommandBuffers(m_device.native(), &allocInfo, vkBuffers.data()) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to allocate command buffers!");
+            LAVAVK_ERROR("Failed to allocate command buffers!");
         }
 
         m_allocatedBuffers.reserve(m_allocatedBuffers.size() + count);
@@ -220,7 +220,7 @@ namespace LavaVK {
 
     void CommandPool::reset() const {
         if (vkResetCommandPool(m_device.native(), m_pool, 0) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to reset command pool!");
+            LAVAVK_ERROR("Failed to reset command pool!");
         }
     }
 
@@ -254,6 +254,23 @@ namespace LavaVK {
             static_cast<uint32_t>(rawBuffers.size()),
             rawBuffers.data(),
             offsets.data()
+        );
+    }
+
+    void CommandBuffer::bindDescriptorSets(
+            const PipelineLayout &layout,
+            PipelineBindPoint pipeline_bind_point,
+            const std::vector<VkDescriptorSet> &descriptor_sets,
+            uint32_t first_set) const {
+        vkCmdBindDescriptorSets(
+            native(),
+            static_cast<VkPipelineBindPoint>(pipeline_bind_point),
+            layout.native(),
+            first_set,
+            static_cast<uint32_t>(descriptor_sets.size()),
+            descriptor_sets.data(),
+            0,
+            nullptr
         );
     }
 } // namespace LavaVK

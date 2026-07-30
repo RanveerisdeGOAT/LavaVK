@@ -1,6 +1,7 @@
 #include "LavaVK/SwapChain.hpp"
 
 #include "LavaVK/Queue.hpp"
+#include "LavaVK/Texture.hpp"
 
 
 namespace LavaVK {
@@ -137,7 +138,7 @@ namespace LavaVK {
         createInfo.clipped = VK_TRUE;
 
         if (vkCreateSwapchainKHR(m_device.native(), &createInfo, nullptr, &m_swapchain) != VK_SUCCESS) {
-            throw std::runtime_error("[LavaVK ERROR] Failed to create Vulkan swapchain.");
+            LAVAVK_ERROR("[LavaVK ERROR] Failed to create Vulkan swapchain.");
         }
 
         // 4. Retrieve raw VkImages & encapsulate them inside LavaVK::Image wrappers

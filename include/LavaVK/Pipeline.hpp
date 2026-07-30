@@ -394,6 +394,13 @@ namespace LavaVK {
             static_cast<VkPipelineStageFlags>(lhs) | static_cast<VkPipelineStageFlags>(rhs)
         );
     }
+
+    enum class PipelineBindPoint{
+        Graphics = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        Compute = VK_PIPELINE_BIND_POINT_COMPUTE,
+    };
+
+
 } // namespace LavaVK
 
 #endif // LAVAVK_PIPELINE_HPP
