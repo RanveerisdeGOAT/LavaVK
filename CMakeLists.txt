@@ -8,14 +8,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Vulkan
 find_package(Vulkan REQUIRED)
 
-# GLFW
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-
-add_subdirectory(external/glfw)
-
 # GLM
 set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/glm/glm)
@@ -62,7 +54,6 @@ target_include_directories(LavaVK
 target_link_libraries(LavaVK
         PUBLIC
         Vulkan::Vulkan
-        glfw
         glm
         shaderc
 )
