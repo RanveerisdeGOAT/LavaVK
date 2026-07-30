@@ -8,7 +8,6 @@
 #include "LavaVK/Queue.hpp"
 
 namespace LavaVK {
-
     namespace {
         VkImageType toVkImageType(ImageType type) {
             switch (type) {
@@ -67,7 +66,7 @@ namespace LavaVK {
                 if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) ==
                     properties) {
                     return i;
-                    }
+                }
             }
 
             LAVAVK_ERROR("[LavaVK ERROR] Failed to find suitable memory type for image allocation.");
@@ -215,16 +214,15 @@ namespace LavaVK {
         return *this;
     }
 
-    Texture::Texture(Device &device, const std::filesystem::path& path,
-    const TextureSamplerCreateInfo& customSamplerInfo)
-        : m_device_(device)
-    {
+    Texture::Texture(Device &device, const std::filesystem::path &path,
+                     const TextureSamplerCreateInfo &customSamplerInfo)
+        : m_device(device) {
         // 1. Load pixel data using stb_image
         int width = 0;
         int height = 0;
         int channels = 0;
 
-        stbi_uc* pixels = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
+        stbi_uc *pixels = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
         if (!pixels) {
             throw std::runtime_error("Failed to load texture image at: " + path.string());
         }
@@ -233,7 +231,7 @@ namespace LavaVK {
 
         // 2. Create staging buffer and upload CPU pixels
         Buffer stagingBuffer(
-            m_device_,
+            m_device,
             BufferCreateInfo{
                 .size = imageSize,
                 .usage = BufferUsage::TransferSrc,
@@ -252,7 +250,7 @@ namespace LavaVK {
         };
 
         m_image = Image(
-            m_device_,
+            m_device,
             ImageCreateInfo{
                 .type = ImageType::IMAGE_2D,
                 .extent = extent,
@@ -264,17 +262,17 @@ namespace LavaVK {
         );
 
         // 4. Record and submit commands to copy staging buffer to the GPU Image
-        const uint32_t queueFamily = m_device_.getQueueFamily(QueueType::GRAPHICS);
+        const uint32_t queueFamily = m_device.getQueueFamily(QueueType::GRAPHICS);
 
         VkQueue queue = VK_NULL_HANDLE;
-        vkGetDeviceQueue(m_device_.native(), queueFamily, 0, &queue);
+        vkGetDeviceQueue(m_device.native(), queueFamily, 0, &queue);
 
         VkCommandPool commandPool = VK_NULL_HANDLE;
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
         poolInfo.queueFamilyIndex = queueFamily;
-        if (vkCreateCommandPool(m_device_.native(), &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+        if (vkCreateCommandPool(m_device.native(), &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create temporary command pool for texture upload.");
         }
 
@@ -284,7 +282,7 @@ namespace LavaVK {
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandPool = commandPool;
         allocInfo.commandBufferCount = 1;
-        vkAllocateCommandBuffers(m_device_.native(), &allocInfo, &commandBuffer);
+        vkAllocateCommandBuffers(m_device.native(), &allocInfo, &commandBuffer);
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -364,7 +362,7 @@ namespace LavaVK {
         vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
         vkQueueWaitIdle(queue);
 
-        vkDestroyCommandPool(m_device_.native(), commandPool, nullptr);
+        vkDestroyCommandPool(m_device.native(), commandPool, nullptr);
 
         // Create Vulkan Sampler
         VkSamplerCreateInfo samplerInfo{};
@@ -387,28 +385,23 @@ namespace LavaVK {
         samplerInfo.minLod = 0.0f;
         samplerInfo.maxLod = 0.0f;
 
-        if (vkCreateSampler(m_device_.native(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create texture sampler!");
-        }
-
-        if (vkCreateSampler(m_device_.native(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
+        if (vkCreateSampler(m_device.native(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create texture sampler!");
         }
     }
 
     Texture::~Texture() {
         if (m_sampler != VK_NULL_HANDLE) {
-            vkDestroySampler(m_device_.native(), m_sampler, nullptr);
+            vkDestroySampler(m_device.native(), m_sampler, nullptr);
             m_sampler = VK_NULL_HANDLE;
         }
     }
 
-    Image& Texture::image() const {
-        return const_cast<Image&>(m_image);
+    Image &Texture::image() const {
+        return const_cast<Image &>(m_image);
     }
 
     VkSampler Texture::sampler() const {
         return m_sampler;
     }
-
 } // namespace LavaVK

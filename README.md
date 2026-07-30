@@ -1,4 +1,4 @@
-# LavaVK
+# LavaVK 1.0.0
 
 A modern, user-friendly C++ wrapper around the Vulkan graphics API.
 
@@ -43,9 +43,9 @@ Currently in development.
 - [x] Supports loading SPIR-V binaries directly
 - [x] Compatible with any Window API
 - [x] Buffers
+- [x] Textures
 ---
 ### Planned Features:
-- [ ] Textures
 - [ ] Compute Pipelines
 - [ ] Descriptor indexing
 - [ ] Raytracing

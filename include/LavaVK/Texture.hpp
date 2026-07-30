@@ -30,13 +30,17 @@ namespace LavaVK {
     enum class ImageUsage : VkImageUsageFlags {
         NONE = 0, /**< No usage specified. */
         TRANSFER_SRC = VK_IMAGE_USAGE_TRANSFER_SRC_BIT, /**< Usable as the source of a transfer (copy/blit) command. */
-        TRANSFER_DST = VK_IMAGE_USAGE_TRANSFER_DST_BIT, /**< Usable as the destination of a transfer (copy/blit) command. */
+        TRANSFER_DST = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        /**< Usable as the destination of a transfer (copy/blit) command. */
         SAMPLED = VK_IMAGE_USAGE_SAMPLED_BIT, /**< Usable as a sampled texture in a shader. */
         STORAGE = VK_IMAGE_USAGE_STORAGE_BIT, /**< Usable as a storage image for read/write shader access. */
         COLOR_ATTACHMENT = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, /**< Usable as a color attachment in a framebuffer. */
-        DEPTH_ATTACHMENT = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, /**< Usable as a depth/stencil attachment in a framebuffer. */
-        TRANSIENT = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, /**< Hints the implementation this attachment's contents need not persist. */
-        INPUT_ATTACHMENT = VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT /**< Usable as an input attachment, read by a shader within the same subpass. */
+        DEPTH_ATTACHMENT = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        /**< Usable as a depth/stencil attachment in a framebuffer. */
+        TRANSIENT = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+        /**< Hints the implementation this attachment's contents need not persist. */
+        INPUT_ATTACHMENT = VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT
+        /**< Usable as an input attachment, read by a shader within the same subpass. */
     };
 
     /**
@@ -285,14 +289,20 @@ namespace LavaVK {
      * #SamplerAddressMode::CLAMP_TO_BORDER; ignored otherwise.
      */
     enum class BorderColor {
-        FLOAT_TRANSPARENT_BLACK = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK, /**< Transparent black, floating-point format: (0, 0, 0, 0). */
-        INT_TRANSPARENT_BLACK = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK, /**< Transparent black, integer format: (0, 0, 0, 0). */
-        FLOAT_OPAQUE_BLACK = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK, /**< Opaque black, floating-point format: (0, 0, 0, 1). */
+        FLOAT_TRANSPARENT_BLACK = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+        /**< Transparent black, floating-point format: (0, 0, 0, 0). */
+        INT_TRANSPARENT_BLACK = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK,
+        /**< Transparent black, integer format: (0, 0, 0, 0). */
+        FLOAT_OPAQUE_BLACK = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK,
+        /**< Opaque black, floating-point format: (0, 0, 0, 1). */
         INT_OPAQUE_BLACK = VK_BORDER_COLOR_INT_OPAQUE_BLACK, /**< Opaque black, integer format: (0, 0, 0, 1). */
-        FLOAT_OPAQUE_WHITE = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE, /**< Opaque white, floating-point format: (1, 1, 1, 1). */
+        FLOAT_OPAQUE_WHITE = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+        /**< Opaque white, floating-point format: (1, 1, 1, 1). */
         INT_OPAQUE_WHITE = VK_BORDER_COLOR_INT_OPAQUE_WHITE, /**< Opaque white, integer format: (1, 1, 1, 1). */
-        FLOAT_CUSTOM_EXT = VK_BORDER_COLOR_FLOAT_CUSTOM_EXT, /**< Custom floating-point border color (requires `VK_EXT_custom_border_color`). */
-        INT_CUSTOM_EXT = VK_BORDER_COLOR_INT_CUSTOM_EXT, /**< Custom integer border color (requires `VK_EXT_custom_border_color`). */
+        FLOAT_CUSTOM_EXT = VK_BORDER_COLOR_FLOAT_CUSTOM_EXT,
+        /**< Custom floating-point border color (requires `VK_EXT_custom_border_color`). */
+        INT_CUSTOM_EXT = VK_BORDER_COLOR_INT_CUSTOM_EXT,
+        /**< Custom integer border color (requires `VK_EXT_custom_border_color`). */
         MAX_ENUM = VK_BORDER_COLOR_MAX_ENUM /**< Sentinel value; not a valid border color. */
     };
 
@@ -313,11 +323,14 @@ namespace LavaVK {
      */
     enum class SamplerAddressMode {
         REPEAT = VK_SAMPLER_ADDRESS_MODE_REPEAT, /**< The texture repeats, tiling infinitely. */
-        MIRRORED_REPEAT = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT, /**< The texture repeats, mirroring on each repeat. */
+        MIRRORED_REPEAT = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
+        /**< The texture repeats, mirroring on each repeat. */
         CLAMP_TO_EDGE = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, /**< Coordinates are clamped to the edge texel. */
-        CLAMP_TO_BORDER = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, /**< Coordinates outside range sample a fixed border color. */
+        CLAMP_TO_BORDER = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+        /**< Coordinates outside range sample a fixed border color. */
         MIRROR_CLAMP_TO_EDGE = VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE, /**< Mirrors once, then clamps to edge. */
-        MIRROR_CLAMP_TO_EDGE_KHR = VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE_KHR, /**< KHR alias of #MIRROR_CLAMP_TO_EDGE. */
+        MIRROR_CLAMP_TO_EDGE_KHR = VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE_KHR,
+        /**< KHR alias of #MIRROR_CLAMP_TO_EDGE. */
         MAX_ENUM = VK_SAMPLER_ADDRESS_MODE_MAX_ENUM /**< Sentinel value; not a valid address mode. */
     };
 
@@ -397,8 +410,8 @@ namespace LavaVK {
          */
         Texture(
             Device &device,
-            const std::filesystem::path& path,
-            const TextureSamplerCreateInfo& samplerInfo = {}
+            const std::filesystem::path &path,
+            const TextureSamplerCreateInfo &samplerInfo = {}
         );
 
         /**
@@ -408,18 +421,23 @@ namespace LavaVK {
          */
         ~Texture();
 
-        Texture(const Texture&) = delete;
-        Texture& operator=(const Texture&) = delete;
+        Texture(const Texture &) = delete;
 
-        Texture(Texture&&) = delete;
-        Texture& operator=(Texture&&) = delete;
+        Texture &operator=(const Texture &) = delete;
+
+        Texture(Texture &&other) noexcept
+            : m_device(other.m_device), m_sampler(other.m_sampler) {
+            other.m_sampler = VK_NULL_HANDLE;
+        }
+
+        Texture &operator=(Texture &&) = delete;
 
         /**
          * @brief Returns the GPU image backing this texture.
          * @return Mutable reference to the underlying #Image, so its
          * `VkImageView` can be bound in a descriptor write.
          */
-        Image& image() const;
+        Image &image() const;
 
         /**
          * @brief Returns the sampler created for this texture.
@@ -428,7 +446,7 @@ namespace LavaVK {
         VkSampler sampler() const;
 
     private:
-        Device& m_device_;
+        Device &m_device;
         Image m_image{};
         VkDeviceMemory memory{};
         VkSampler m_sampler{};

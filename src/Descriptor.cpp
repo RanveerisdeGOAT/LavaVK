@@ -59,7 +59,6 @@ namespace LavaVK {
         }
     }
 
-
     DescriptorPool::Builder &DescriptorPool::Builder::addPoolSize(DescriptorType descriptorType, uint32_t count) {
         m_poolCounts[descriptorType] += count;
         return *this;
@@ -86,6 +85,8 @@ namespace LavaVK {
         return std::make_unique<DescriptorPool>(m_device, m_maxSets, m_poolFlags, poolSizes);
     }
 
+    // --- DescriptorPool ---
+
     DescriptorPool::DescriptorPool(
         Device &device,
         uint32_t maxSets,
@@ -110,14 +111,21 @@ namespace LavaVK {
         }
     }
 
-    bool DescriptorPool::allocateDescriptorSet(VkDescriptorSetLayout layout, VkDescriptorSet &descriptorSet) const {
+    DescriptorSet DescriptorPool::allocateDescriptorSet(const DescriptorSetLayout &layout) const {
+        DescriptorSet descriptorSet = VK_NULL_HANDLE;
+        VkDescriptorSetLayout vkLayout = layout.native();
+
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = m_pool;
-        allocInfo.pSetLayouts = &layout;
+        allocInfo.pSetLayouts = &vkLayout;
         allocInfo.descriptorSetCount = 1;
 
-        return vkAllocateDescriptorSets(m_device.native(), &allocInfo, &descriptorSet) == VK_SUCCESS;
+        if (vkAllocateDescriptorSets(m_device.native(), &allocInfo, &descriptorSet) != VK_SUCCESS) {
+            LAVAVK_ERROR("Failed to allocate descriptor set from pool!");
+        }
+
+        return descriptorSet;
     }
 
     void DescriptorPool::freeDescriptorSets(const std::vector<VkDescriptorSet> &descriptorSets) const {
@@ -125,12 +133,13 @@ namespace LavaVK {
                              descriptorSets.data());
     }
 
+    // --- DescriptorPool::Writer ---
 
-    DescriptorWriter::DescriptorWriter(DescriptorSetLayout &setLayout, DescriptorPool &pool)
-        : m_setLayout(setLayout), m_pool(pool) {
+    DescriptorPool::Writer::Writer(DescriptorPool &pool, DescriptorSetLayout &setLayout)
+        : m_pool(pool), m_setLayout(setLayout) {
     }
 
-    DescriptorWriter &DescriptorWriter::writeBuffer(uint32_t binding, VkDescriptorBufferInfo *bufferInfo) {
+    DescriptorPool::Writer &DescriptorPool::Writer::writeBuffer(uint32_t binding, const DescriptorBuffer *bufferInfo) {
         const auto &bindings = m_setLayout.getBindings();
         auto bindingDescription = bindings.at(binding);
 
@@ -138,14 +147,14 @@ namespace LavaVK {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorType = toVkDescriptorType(bindingDescription.descriptorType);
         write.dstBinding = binding;
-        write.pBufferInfo = bufferInfo;
+        write.pBufferInfo = &bufferInfo->native();
         write.descriptorCount = bindingDescription.descriptorCount;
 
         m_writes.push_back(write);
         return *this;
     }
 
-    DescriptorWriter &DescriptorWriter::writeImage(uint32_t binding, VkDescriptorImageInfo *imageInfo) {
+    DescriptorPool::Writer &DescriptorPool::Writer::writeImage(uint32_t binding, const DescriptorImage *imageInfo) {
         const auto &bindings = m_setLayout.getBindings();
         auto bindingDescription = bindings.at(binding);
 
@@ -153,27 +162,44 @@ namespace LavaVK {
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         write.descriptorType = toVkDescriptorType(bindingDescription.descriptorType);
         write.dstBinding = binding;
-        write.pImageInfo = imageInfo;
+        write.pImageInfo = &imageInfo->native();
         write.descriptorCount = bindingDescription.descriptorCount;
 
         m_writes.push_back(write);
         return *this;
     }
 
-    bool DescriptorWriter::build(VkDescriptorSet &set) {
-        bool success = m_pool.allocateDescriptorSet(m_setLayout.native(), set);
-        if (!success) {
-            return false;
+    DescriptorSet DescriptorPool::Writer::build() {
+        DescriptorSet set = m_pool.allocateDescriptorSet(m_setLayout);
+
+        if (set == VK_NULL_HANDLE) {
+            throw std::runtime_error("Failed to allocate descriptor set: DescriptorPool exhausted!");
         }
+
         overwrite(set);
-        return true;
+        return set;
     }
 
-    void DescriptorWriter::overwrite(VkDescriptorSet &set) {
+    void DescriptorPool::Writer::overwrite(DescriptorSet set) {
+        if (set == VK_NULL_HANDLE) {
+            LAVAVK_ERROR("[LavaVK ERROR] Cannot overwrite a null DescriptorSet handle!");
+            return;
+        }
+
+        if (m_writes.empty()) {
+            return; // Nothing to update
+        }
+
         for (auto &write: m_writes) {
             write.dstSet = set;
         }
-        vkUpdateDescriptorSets(m_pool.m_device.native(), static_cast<uint32_t>(m_writes.size()), m_writes.data(), 0,
-                               nullptr);
+
+        vkUpdateDescriptorSets(
+            m_pool.device().native(),
+            static_cast<uint32_t>(m_writes.size()),
+            m_writes.data(),
+            0,
+            nullptr
+        );
     }
 }

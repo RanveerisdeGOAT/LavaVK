@@ -4,6 +4,11 @@
 #include <vulkan/vulkan_core.h>
 
 #include "Shader.hpp"
+#include "Texture.hpp"
+
+namespace LavaVK {
+    class Image;
+}
 
 namespace LavaVK {
     /**
@@ -41,6 +46,89 @@ namespace LavaVK {
         uint32_t stageFlags = ShaderStageFlags::STAGE_ALL_GRAPHICS; /**< Target shader stages */
         uint32_t offset = 0; /**< Offset in bytes */
         uint32_t size = 0; /**< Size in bytes */
+    };
+
+    class DescriptorBuffer {
+    public:
+        DescriptorBuffer(
+            Buffer &buffer,
+            uint64_t offset,
+            uint64_t range) {
+            m_info.buffer = buffer.native();
+            m_info.offset = offset;
+            m_info.range = range;
+        }
+
+        [[nodiscard]]
+        const VkDescriptorBufferInfo &native() const {
+            return m_info;
+        }
+
+    private:
+        VkDescriptorBufferInfo m_info{};
+    };
+
+    enum class ImageLayout {
+        UNDEFINED = VK_IMAGE_LAYOUT_UNDEFINED,
+        GENERAL = VK_IMAGE_LAYOUT_GENERAL,
+        COLOR_ATTACHMENT_OPTIMAL = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        DEPTH_STENCIL_ATTACHMENT_OPTIMAL = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        DEPTH_STENCIL_READ_ONLY_OPTIMAL = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+        SHADER_READ_ONLY_OPTIMAL = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        TRANSFER_SRC_OPTIMAL = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        TRANSFER_DST_OPTIMAL = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        PREINITIALIZED = VK_IMAGE_LAYOUT_PREINITIALIZED,
+        DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL,
+        DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL,
+        DEPTH_ATTACHMENT_OPTIMAL = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        DEPTH_READ_ONLY_OPTIMAL = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL,
+        STENCIL_ATTACHMENT_OPTIMAL = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
+        STENCIL_READ_ONLY_OPTIMAL = VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL,
+        READ_ONLY_OPTIMAL = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+        ATTACHMENT_OPTIMAL = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+        RENDERING_LOCAL_READ = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ,
+        PRESENT_SRC_KHR = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        VIDEO_DECODE_DST_KHR = VK_IMAGE_LAYOUT_VIDEO_DECODE_DST_KHR,
+        VIDEO_DECODE_SRC_KHR = VK_IMAGE_LAYOUT_VIDEO_DECODE_SRC_KHR,
+        VIDEO_DECODE_DPB_KHR = VK_IMAGE_LAYOUT_VIDEO_DECODE_DPB_KHR,
+        SHARED_PRESENT_KHR = VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR,
+        FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = VK_IMAGE_LAYOUT_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT,
+        FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR = VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR,
+        VIDEO_ENCODE_DST_KHR = VK_IMAGE_LAYOUT_VIDEO_ENCODE_DST_KHR,
+        VIDEO_ENCODE_SRC_KHR = VK_IMAGE_LAYOUT_VIDEO_ENCODE_SRC_KHR,
+        VIDEO_ENCODE_DPB_KHR = VK_IMAGE_LAYOUT_VIDEO_ENCODE_DPB_KHR,
+        ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT = VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT,
+        TENSOR_ALIASING_ARM = VK_IMAGE_LAYOUT_TENSOR_ALIASING_ARM,
+        VIDEO_ENCODE_QUANTIZATION_MAP_KHR = VK_IMAGE_LAYOUT_VIDEO_ENCODE_QUANTIZATION_MAP_KHR,
+        ZERO_INITIALIZED_EXT = VK_IMAGE_LAYOUT_ZERO_INITIALIZED_EXT,
+        SHADING_RATE_OPTIMAL_NV = VK_IMAGE_LAYOUT_SHADING_RATE_OPTIMAL_NV,
+        RENDERING_LOCAL_READ_KHR = VK_IMAGE_LAYOUT_RENDERING_LOCAL_READ_KHR,
+        DEPTH_ATTACHMENT_OPTIMAL_KHR = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR,
+        DEPTH_READ_ONLY_OPTIMAL_KHR = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL_KHR,
+        STENCIL_ATTACHMENT_OPTIMAL_KHR = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL_KHR,
+        STENCIL_READ_ONLY_OPTIMAL_KHR = VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL_KHR,
+        READ_ONLY_OPTIMAL_KHR = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR,
+        ATTACHMENT_OPTIMAL_KHR = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR,
+        VK_IMAGE_LAYOUT_MAX_ENUM = 0x7FFFFFFF
+    };
+
+    class DescriptorImage {
+    public:
+        DescriptorImage(
+            Texture &tex,
+            ImageLayout layout = ImageLayout::READ_ONLY_OPTIMAL) {
+            m_info.sampler = tex.sampler();
+            m_info.imageView = tex.image().view();
+            m_info.imageLayout = static_cast<VkImageLayout>(layout);
+        }
+
+        [[nodiscard]]
+        const VkDescriptorImageInfo &native() const {
+            return m_info;
+        }
+
+    private:
+        VkDescriptorImageInfo m_info{};
     };
 
     /**
@@ -123,151 +211,9 @@ namespace LavaVK {
         std::unordered_map<uint32_t, DescriptorSetLayoutBinding> m_bindings;
     };
 
-    /**
-     * @brief Manages allocation pool for Vulkan descriptor sets (`VkDescriptorPool`).
-     */
-    class DescriptorPool {
-    public:
-        /**
-         * @brief Fluent builder helper for constructing `DescriptorPool` instances.
-         */
-        class Builder {
-        public:
-            /**
-             * @brief Constructs a new Builder for descriptor pool creation.
-             * @param device Reference to the LavaVK logical device.
-             */
-            explicit Builder(Device &device) : m_device(device) {
-            }
+    // Type alias for native Vulkan DescriptorSet
+    using DescriptorSet = VkDescriptorSet;
 
-            /**
-             * @brief Configures maximum pool capacity for a given descriptor type.
-             * @param descriptorType Type of descriptor to reserve slots for.
-             * @param count Number of descriptors of this type to allocate space for.
-             * @return Reference to this Builder instance.
-             */
-            Builder &addPoolSize(DescriptorType descriptorType, uint32_t count);
-
-            /**
-             * @brief Sets Vulkan creation flags (e.g., `VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT`).
-             * @param flags Vulkan flags.
-             * @return Reference to this Builder instance.
-             */
-            Builder &setPoolFlags(VkDescriptorPoolCreateFlags flags);
-
-            /**
-             * @brief Sets the maximum total number of descriptor sets allocatable from this pool.
-             * @param count Maximum set count (defaults to 1000).
-             * @return Reference to this Builder instance.
-             */
-            Builder &setMaxSets(uint32_t count);
-
-            /**
-             * @brief Builds and instantiates the `DescriptorPool`.
-             * @return `std::unique_ptr` owning the created `DescriptorPool`.
-             */
-            std::unique_ptr<DescriptorPool> build() const;
-
-        private:
-            Device &m_device;
-            std::unordered_map<DescriptorType, uint32_t> m_poolCounts{};
-            uint32_t m_maxSets = 1000;
-            VkDescriptorPoolCreateFlags m_poolFlags = 0;
-        };
-
-        /**
-         * @brief Direct constructor for `DescriptorPool`.
-         * @param device Reference to the LavaVK logical device.
-         * @param maxSets Maximum descriptor sets allocatable.
-         * @param flags Creation flags.
-         * @param poolSizes Sizes for individual descriptor types.
-         */
-        DescriptorPool(Device &device, uint32_t maxSets, VkDescriptorPoolCreateFlags flags,
-                       const std::vector<VkDescriptorPoolSize> &poolSizes);
-
-        /**
-         * @brief Destroys the underlying `VkDescriptorPool`.
-         */
-        ~DescriptorPool();
-
-        // Non-copyable
-        DescriptorPool(const DescriptorPool &) = delete;
-
-        DescriptorPool &operator=(const DescriptorPool &) = delete;
-
-        /**
-         * @brief Allocates a descriptor set using a specified layout.
-         * @param layout Layout configuration to allocate against.
-         * @param descriptorSet [out] Output handle receiving the allocated descriptor set.
-         * @return True if allocation succeeded, false otherwise.
-         */
-        bool allocateDescriptorSet(VkDescriptorSetLayout layout, VkDescriptorSet &descriptorSet) const;
-
-        /**
-         * @brief Frees one or more allocated descriptor sets back to this pool.
-         * @param descriptorSets List of descriptor set handles to free.
-         */
-        void freeDescriptorSets(const std::vector<VkDescriptorSet> &descriptorSets) const;
-
-        /**
-         * @brief Gets the native Vulkan `VkDescriptorPool` handle.
-         * @return Native VkDescriptorPool handle.
-         */
-        [[nodiscard]] VkDescriptorPool native() const { return m_pool; }
-
-    private:
-        friend class DescriptorWriter;
-
-        Device &m_device;
-        VkDescriptorPool m_pool{VK_NULL_HANDLE};
-    };
-
-    /**
-     * @brief Helper class to bind buffers and image samplers to descriptor set slots.
-     */
-    class DescriptorWriter {
-    public:
-        /**
-         * @brief Constructs a DescriptorWriter.
-         * @param setLayout Target descriptor layout description.
-         * @param pool Descriptor pool from which to allocate/update sets.
-         */
-        DescriptorWriter(DescriptorSetLayout &setLayout, DescriptorPool &pool);
-
-        /**
-         * @brief Enqueues a buffer binding write operation.
-         * @param binding Target layout binding index.
-         * @param bufferInfo Pointer to Vulkan descriptor buffer info.
-         * @return Reference to this writer for chaining.
-         */
-        DescriptorWriter &writeBuffer(uint32_t binding, VkDescriptorBufferInfo *bufferInfo);
-
-        /**
-         * @brief Enqueues an image/sampler binding write operation.
-         * @param binding Target layout binding index.
-         * @param imageInfo Pointer to Vulkan descriptor image info.
-         * @return Reference to this writer for chaining.
-         */
-        DescriptorWriter &writeImage(uint32_t binding, VkDescriptorImageInfo *imageInfo);
-
-        /**
-         * @brief Allocates a new descriptor set from the pool and writes the configured descriptor updates.
-         * @param set [out] Output handle receiving the allocated and populated set.
-         * @return True if allocation and writing succeeded.
-         */
-        bool build(VkDescriptorSet &set);
-
-        /**
-         * @brief Overwrites an existing allocated descriptor set with configured write operations.
-         * @param set Target descriptor set handle to overwrite.
-         */
-        void overwrite(VkDescriptorSet &set);
-
-    private:
-        DescriptorSetLayout &m_setLayout;
-        DescriptorPool &m_pool;
-        std::vector<VkWriteDescriptorSet> m_writes;
-    };
 
     static VkDescriptorType toVkDescriptorType(DescriptorType type) {
         switch (type) {
@@ -285,6 +231,89 @@ namespace LavaVK {
         }
         return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     }
+
+    /**
+     * @brief Manages a VkDescriptorPool and provides allocation/writing helper utilities.
+     */
+    class DescriptorPool {
+    public:
+        class Builder {
+        public:
+            explicit Builder(Device &device) : m_device(device) {
+            }
+
+            Builder &addPoolSize(DescriptorType descriptorType, uint32_t count);
+
+            Builder &setPoolFlags(VkDescriptorPoolCreateFlags flags);
+
+            Builder &setMaxSets(uint32_t count);
+
+            std::unique_ptr<DescriptorPool> build() const;
+
+        private:
+            Device &m_device;
+            std::unordered_map<DescriptorType, uint32_t> m_poolCounts{};
+            uint32_t m_maxSets = 1000;
+            VkDescriptorPoolCreateFlags m_poolFlags = 0;
+        };
+
+        /**
+         * @brief Writer builder that allocates a descriptor set automatically, writes to it, and returns it.
+         */
+        class Writer {
+        public:
+            Writer(DescriptorPool &pool, DescriptorSetLayout &setLayout);
+
+            Writer &writeBuffer(uint32_t binding, const DescriptorBuffer *bufferInfo);
+
+            Writer &writeImage(uint32_t binding, const DescriptorImage *imageInfo);
+
+            /**
+             * @brief Allocates and writes the set, returning the created DescriptorSet handle.
+             * @throw std::runtime_error if allocation fails.
+             */
+            DescriptorSet build();
+
+            /**
+             * @brief Overwrites an existing descriptor set instead of allocating a new one.
+             */
+            void overwrite(DescriptorSet set);
+
+        private:
+            DescriptorPool &m_pool;
+            DescriptorSetLayout &m_setLayout;
+            std::vector<VkWriteDescriptorSet> m_writes;
+        };
+
+        DescriptorPool(
+            Device &device,
+            uint32_t maxSets,
+            VkDescriptorPoolCreateFlags flags,
+            const std::vector<VkDescriptorPoolSize> &poolSizes
+        );
+
+        ~DescriptorPool();
+
+        DescriptorPool(const DescriptorPool &) = delete;
+
+        DescriptorPool &operator=(const DescriptorPool &) = delete;
+
+        DescriptorSet allocateDescriptorSet(const DescriptorSetLayout &layout) const;
+
+        void freeDescriptorSets(const std::vector<VkDescriptorSet> &descriptorSets) const;
+
+        /**
+         * @brief Creates a Writer helper bound to this pool and target layout.
+         */
+        Writer write(DescriptorSetLayout &setLayout) { return Writer(*this, setLayout); }
+
+        [[nodiscard]] VkDescriptorPool native() const { return m_pool; }
+        [[nodiscard]] Device &device() const { return m_device; }
+
+    private:
+        Device &m_device;
+        VkDescriptorPool m_pool{VK_NULL_HANDLE};
+    };
 }
 
 #endif //LAVAVK_DESCRIPTOR_H
