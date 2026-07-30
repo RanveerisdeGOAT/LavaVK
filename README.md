@@ -84,7 +84,7 @@ target_link_libraries(Example
 Visit https://ranveerisdegoat.github.io/LavaVK/html/index.html for full documentation
 
 ## Getting started
-Visit the wiki
+Visit the wiki: https://github.com/RanveerisdeGOAT/LavaVK/wiki/Getting-Started
 
 
 
