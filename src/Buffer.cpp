@@ -1,13 +1,6 @@
 #include "LavaVK/Buffer.hpp"
 
-#include <cstring>
-
-#include "LavaVK/Device.hpp"
-
-#include <stdexcept>
-#include <utility>
-
-#include "LavaVK/LavaVK.hpp"
+#include "LavaVK/Pipeline.hpp"
 
 namespace LavaVK {
     namespace {
@@ -258,7 +251,7 @@ namespace LavaVK {
     }
 
     uint32_t Buffer::findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter,
-                                   VkMemoryPropertyFlags properties) {
+                                    VkMemoryPropertyFlags properties) {
         VkPhysicalDeviceMemoryProperties memProperties;
         vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 

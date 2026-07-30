@@ -5,10 +5,10 @@
 #include <cstdint>
 #include <stdexcept>
 #include <vector>
+#include <utility>
 
 namespace LavaVK {
     class Fence;
-
     class Device;
 
     /**
@@ -26,8 +26,27 @@ namespace LavaVK {
 
     /**
      * @brief Wrapper around VkSubmitInfo to simplify building queue submission payloads.
-     * * Manages internal lifetime for wait semaphores, signal semaphores, pipeline stage masks,
-     * and command buffers to prevent pointer dangling during submission.
+     *
+     * @details
+     * Raw `VkSubmitInfo` only stores pointers into arrays owned by the
+     * caller, which means those arrays must outlive the submit call.
+     * `SubmitInfo` instead owns copies of the wait semaphores, signal
+     * semaphores, wait stage masks, and command buffers passed to it, and
+     * keeps its internal `VkSubmitInfo` pointers referencing that owned
+     * storage. This lets a `SubmitInfo` be built up with chained setter
+     * calls and safely passed to `Queue::submit` without the caller having
+     * to manage the lifetime of any backing arrays.
+     *
+     * Example:
+     * @code
+     * LavaVK::SubmitInfo submitInfo;
+     * submitInfo
+     *     .setWaitSemaphores({ imageAvailable }, { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT })
+     *     .setCommandBuffers({ cmd.native() })
+     *     .setSignalSemaphores({ renderFinished });
+     *
+     * queue.submit(submitInfo, inFlightFence);
+     * @endcode
      */
     class SubmitInfo {
     public:
@@ -105,6 +124,23 @@ namespace LavaVK {
 
     /**
      * @brief Wrapper class managing execution operations on a Vulkan device queue (`VkQueue`).
+     *
+     * @details
+     * `Queue` is a lightweight, non-owning handle: the underlying `VkQueue`
+     * is owned by the Vulkan implementation (retrieved via
+     * `vkGetDeviceQueue`) and is implicitly destroyed when the parent
+     * `Device` is destroyed, so `Queue` itself has no destructor to manage
+     * and is freely copyable. LavaVK's `Device` exposes one `Queue` per
+     * requested `QueueType` (e.g. `GRAPHICS`, `TRANSFER`, `PRESENT`); a
+     * `Queue` is used to submit recorded command buffers for execution and
+     * to present swapchain images.
+     *
+     * Example:
+     * @code
+     * LavaVK::Queue &graphicsQueue = device.getQueue(LavaVK::QueueType::GRAPHICS);
+     * graphicsQueue.submit(submitInfo, inFlightFence);
+     * graphicsQueue.waitIdle();
+     * @endcode
      */
     class Queue {
     public:
@@ -127,6 +163,7 @@ namespace LavaVK {
          * @brief Submits work payloads to this queue for execution on the GPU.
          * @param submitInfo Structured payload containing command buffers and synchronization primitives.
          * @param fence Fence object signaled when all submitted command buffers finish execution.
+         * @throw std::runtime_error If `vkQueueSubmit` fails.
          */
         void submit(
             const SubmitInfo &submitInfo,

@@ -21,15 +21,28 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#ifndef LAVAVK_ERROR_HANDLER
-#define LAVAVK_ERROR_HANDLER
-    #ifndef NDEBUG
-        #define LAVAVK_ERROR(msg) throw std::runtime_error(msg)
-    #else
-        #define LAVAVK_ERROR(msg) std::cerr << msg << std::endl
-    #endif
-#endif
 
+
+/**
+ * @file LavaVK.hpp
+ * @brief Umbrella header for the LavaVK library.
+ *
+ * @details
+ * Including this single header pulls in every public LavaVK module
+ * (instance/device creation, synchronization primitives, queues, surfaces,
+ * pipelines, swapchains, buffers, command recording, shaders, and
+ * descriptors). This is the header applications are expected to include;
+ * individual headers may still be included directly by code that only
+ * needs a subset of LavaVK's functionality.
+ *
+ * @code
+ * #include <LavaVK/LavaVK.hpp>
+ *
+ * LavaVK::Instance instance({ .applicationName = "My App" });
+ * const auto &gpu = LavaVK::GPUHardware::selectOptimalGPU(instance, surface);
+ * LavaVK::Device device(gpu, { LavaVK::QueueType::GRAPHICS }, &surface);
+ * @endcode
+ */
 
 #ifndef LAVAVK_LAVAVK_H
 #define LAVAVK_LAVAVK_H
@@ -45,5 +58,7 @@ SOFTWARE.
 #include "SwapChain.hpp"
 #include "Buffer.hpp"
 #include "Command.hpp"
+#include "Shader.hpp"
+#include "Descriptor.hpp"
 
 #endif //LAVAVK_LAVAVK_H

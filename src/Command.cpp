@@ -1,26 +1,27 @@
 #include "LavaVK/Command.hpp"
-#include "LavaVK/Pipeline.hpp"
-#include <stdexcept>
-
+#include "LavaVK/Device.hpp"
 #include "LavaVK/Buffer.hpp"
+#include "LavaVK/Pipeline.hpp"
+#include "LavaVK/Error.hpp"
+
 
 namespace LavaVK {
     void CommandBuffer::begin() const {
         VkCommandBufferBeginInfo beginInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
         if (vkBeginCommandBuffer(m_buffer, &beginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to begin recording command buffer!");
+            LAVAVK_ERROR("Failed to begin recording command buffer!");
         }
     }
 
     void CommandBuffer::end() const {
         if (vkEndCommandBuffer(m_buffer) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to end recording command buffer!");
+            LAVAVK_ERROR("Failed to end recording command buffer!");
         }
     }
 
     void CommandBuffer::reset() const {
         if (vkResetCommandBuffer(m_buffer, 0) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to reset command buffer!");
+            LAVAVK_ERROR("Failed to reset command buffer!");
         }
     }
 

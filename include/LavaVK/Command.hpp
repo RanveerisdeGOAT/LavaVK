@@ -1,30 +1,62 @@
 #ifndef LAVAVK_COMMAND_HPP
 #define LAVAVK_COMMAND_HPP
 
-#include "Device.hpp"
+#include <stdexcept>
+#include <vulkan/vulkan.h>
 #include <array>
 #include <functional>
 #include <vector>
-#include <vulkan/vulkan.h>
 
+#include "Queue.hpp"
+#include "Shader.hpp"
 #include "Pipeline.hpp"
 
 namespace LavaVK {
+    class Buffer;
     class Framebuffer;
     class RenderPass;
-    class GraphicsPipeline;
-
     /**
      * @brief Wrapper around VkCommandBuffer for recording GPU rendering and compute instructions.
      *
+     * @details
      * Command buffers are allocated from a CommandPool and submitted to a GPU queue for execution.
      * Members are marked const as recording commands modifies the GPU recording state pointed to
-     * by the handle, rather than the C++ handle itself.
+     * by the handle, rather than the C++ handle itself. `CommandBuffer` is a non-owning handle:
+     * it is allocated and freed by its owning #CommandPool, so it has no destructor of its own to
+     * manage and is freely copyable. Typical usage either records commands manually with
+     * #begin()/#beginRenderPass()/.../#end(), or uses the higher-level #record() helper that
+     * manages that whole lifecycle in one call.
+     *
+     * Example (manual recording):
+     * @code
+     * cmd.begin();
+     * cmd.beginRenderPass(renderPass, framebuffer, extent);
+     * cmd.bindPipeline(pipeline);
+     * cmd.setViewportAndScissor(extent);
+     * cmd.bindVertexBuffer(vertexBuffer);
+     * cmd.bindIndexBuffer(indexBuffer);
+     * cmd.drawIndexed(indexCount);
+     * cmd.endRenderPass();
+     * cmd.end();
+     * @endcode
+     *
+     * Example (using #record()):
+     * @code
+     * cmd.record(renderPass, framebuffer, extent, [&](LavaVK::CommandBuffer &cmd) {
+     *     cmd.bindPipeline(pipeline);
+     *     cmd.setViewportAndScissor(extent);
+     *     cmd.bindVertexBuffer(vertexBuffer);
+     *     cmd.bindIndexBuffer(indexBuffer);
+     *     cmd.drawIndexed(indexCount);
+     * });
+     * @endcode
      */
     class CommandBuffer {
     public:
         /**
          * @brief Constructs an uninitialized CommandBuffer handle.
+         * @details `native()` returns `VK_NULL_HANDLE` until this handle is
+         * populated by #CommandPool::allocate().
          */
         CommandBuffer() = default;
 
@@ -48,6 +80,9 @@ namespace LavaVK {
 
         /**
          * @brief Binds a graphics pipeline to the command buffer.
+         * @details Wraps `vkCmdBindPipeline` with `VK_PIPELINE_BIND_POINT_GRAPHICS`.
+         * Must be called between #begin() (and typically #beginRenderPass())
+         * and #end() before recording any draw calls.
          * @param pipeline The GraphicsPipeline instance containing shader stages and pipeline state.
          */
         void bindPipeline(const GraphicsPipeline &pipeline) const;
@@ -70,6 +105,11 @@ namespace LavaVK {
 
         /**
          * @brief Begins a render pass using explicit Vulkan begin info.
+         * @details Low-level entry point for callers that need full control
+         * over `VkRenderPassBeginInfo` (custom clear values, multiple
+         * attachments, render area offsets, etc.); most callers can instead
+         * use the #beginRenderPass(const RenderPass&, const Framebuffer&, VkExtent2D, ...)
+         * convenience overload below.
          * @param renderPassInfo Native VkRenderPassBeginInfo detailing framebuffers, clear values, and render area.
          * @param contents Defines if instructions are recorded directly inline or via secondary command buffers.
          */
@@ -115,6 +155,9 @@ namespace LavaVK {
 
         /**
          * @brief Ends the active render pass.
+         * @details Wraps `vkCmdEndRenderPass`. Must be called after all draw
+         * commands for the current render pass instance have been recorded,
+         * and before #end().
          */
         void endRenderPass() const;
 
@@ -140,8 +183,19 @@ namespace LavaVK {
                          int32_t vertexOffset = 0, uint32_t firstInstance = 0) const;
 
         /**
-     * @brief Pushes constants to a pipeline layout.
-     */
+         * @brief Pushes constants to a pipeline layout.
+         * @details Wraps `vkCmdPushConstants`, uploading @p data as a fast,
+         * small block of shader-visible memory (typically used for
+         * per-draw values like a model-view-projection matrix). The push
+         * constant range covering `[offset, offset + sizeof(T))` and
+         * @p stageFlags must match a range declared on @p layout.
+         * @tparam T Trivially-copyable type of the data being pushed; its size
+         * (via `sizeof(T)`) determines how many bytes are uploaded.
+         * @param layout The pipeline layout declaring the push constant range being written to.
+         * @param stageFlags Shader stages that will be able to access the pushed data.
+         * @param data The value to upload as push constant data.
+         * @param offset Byte offset into the push constant range to start writing at.
+         */
         template<typename T>
         void pushConstants(
             const PipelineLayout &layout,
@@ -160,12 +214,18 @@ namespace LavaVK {
         }
 
         /**
-     * @brief Bind a vertex buffer to a specific binding slot.
-     */
+         * @brief Bind a vertex buffer to a specific binding slot.
+         * @param binding Vertex input binding slot to bind @p vertexBuffer to,
+         * matching a binding declared in the pipeline's #VertexLayout.
+         * @param vertexBuffer The LavaVK #Buffer containing vertex data.
+         * @param offset Byte offset into @p vertexBuffer from which vertex reading starts.
+         */
         void bindVertexBuffer(uint32_t binding, const Buffer &vertexBuffer, VkDeviceSize offset = 0) const;
 
         /**
          * @brief Convenience overload defaulting to binding 0.
+         * @param vertexBuffer The LavaVK #Buffer containing vertex data.
+         * @param offset Byte offset into @p vertexBuffer from which vertex reading starts.
          */
         void bindVertexBuffer(const Buffer &vertexBuffer, VkDeviceSize offset = 0) {
             bindVertexBuffer(0, vertexBuffer, offset);
@@ -173,6 +233,12 @@ namespace LavaVK {
 
         /**
          * @brief Bind multiple vertex buffers at once starting at firstBinding.
+         * @details Wraps `vkCmdBindVertexBuffers`, binding each buffer in
+         * @p buffers to consecutive binding slots starting at @p firstBinding.
+         * @param firstBinding First vertex input binding slot to bind to.
+         * @param buffers Vertex buffers to bind, one per consecutive binding slot.
+         * @param offsets Byte offsets into each corresponding buffer in @p buffers;
+         * must be the same size as @p buffers.
          */
         void bindVertexBuffers(
             uint32_t firstBinding,
@@ -182,6 +248,9 @@ namespace LavaVK {
 
         /**
          * @brief Binds an index buffer (defaults to VK_INDEX_TYPE_UINT16).
+         * @param indexBuffer The LavaVK #Buffer containing index data.
+         * @param indexType Type of indices stored in @p indexBuffer.
+         * @param offset Byte offset into @p indexBuffer from which index reading starts.
          */
         void bindIndexBuffer(
             const Buffer &indexBuffer,
@@ -191,6 +260,7 @@ namespace LavaVK {
 
         /**
          * @brief Returns the underlying Vulkan VkCommandBuffer handle.
+         * @return The native `VkCommandBuffer` handle, or `VK_NULL_HANDLE` if unallocated.
          */
         [[nodiscard]] VkCommandBuffer native() const { return m_buffer; }
 
@@ -238,8 +308,22 @@ namespace LavaVK {
     /**
      * @brief Opaque container managing GPU memory pools for command buffer allocation.
      *
+     * @details
      * A CommandPool encapsulates a VkCommandPool bound to a specific QueueType.
-     * It maintains ownership of all CommandBuffers allocated from it.
+     * It maintains ownership of all CommandBuffers allocated from it; individual
+     * `CommandBuffer` handles are non-owning views into storage kept alive by
+     * their `CommandPool`, and are invalidated when the pool is destroyed or
+     * moved-from. `Device` normally owns one `CommandPool` per requested
+     * `QueueType`, created lazily via `Device::getCommandPool()`, so
+     * applications typically do not construct a `CommandPool` directly.
+     *
+     * Example, allocating one command buffer per frame in flight:
+     * @code
+     * LavaVK::CommandPool &pool = device.getCommandPool(LavaVK::QueueType::GRAPHICS);
+     * pool.allocate(LavaVK::MAX_FRAMES_IN_FLIGHT);
+     *
+     * LavaVK::CommandBuffer &cmd = pool.retrieve(frameIndex);
+     * @endcode
      */
     class CommandPool {
     public:
@@ -258,6 +342,8 @@ namespace LavaVK {
 
         /**
          * @brief Destroys the Vulkan command pool and frees all allocated command buffers.
+         * @details Calls `vkDestroyCommandPool`, which implicitly frees every
+         * `VkCommandBuffer` allocated from it; a moved-from `CommandPool` is a no-op.
          */
         ~CommandPool();
 
@@ -267,17 +353,21 @@ namespace LavaVK {
 
         /**
          * @brief Move constructor for transfer of GPU command pool resource ownership.
+         * @param other The command pool being moved from; left in an empty, destructible state.
          */
         CommandPool(CommandPool &&other) noexcept;
 
         /**
          * @brief Move assignment operator for transfer of GPU command pool resource ownership.
+         * @param other The command pool being moved from; left in an empty, destructible state.
+         * @return Reference to this command pool.
          */
         CommandPool &operator=(CommandPool &&other) noexcept;
 
         /**
          * @brief Allocates a single CommandBuffer from the pool and stores it in internal storage.
          * @return Reference to the newly allocated CommandBuffer.
+         * @throw std::runtime_error If `vkAllocateCommandBuffers` fails.
          */
         CommandBuffer &allocate();
 
@@ -285,6 +375,7 @@ namespace LavaVK {
          * @brief Allocates multiple CommandBuffers from the pool in a single batch call.
          * @param count Number of command buffers to allocate.
          * @return Reference to the internal vector of allocated command buffers.
+         * @throw std::runtime_error If `vkAllocateCommandBuffers` fails.
          */
         std::vector<CommandBuffer> &allocate(uint32_t count);
 
@@ -306,17 +397,22 @@ namespace LavaVK {
 
         /**
          * @brief Resets the underlying Vulkan command pool and clears pre-recorded states.
+         * @details Wraps `vkResetCommandPool`, returning every command buffer
+         * allocated from this pool to the initial (unrecorded) state without
+         * freeing them.
          * @throws std::runtime_error If resetting the command pool fails.
          */
         void reset() const;
 
         /**
          * @brief Returns the total number of command buffers allocated from this pool.
+         * @return Count of `CommandBuffer` entries currently allocated from this pool.
          */
         [[nodiscard]] size_t size() const { return m_allocatedBuffers.size(); }
 
         /**
          * @brief Returns the raw VkCommandPool handle.
+         * @return The native `VkCommandPool` handle, or `VK_NULL_HANDLE` if moved-from.
          */
         [[nodiscard]] VkCommandPool native() const { return m_pool; }
 

@@ -46,6 +46,12 @@ add_library(LavaVK
         src/SwapChain.cpp
         src/Buffer.cpp
         src/Command.cpp
+        include/LavaVK/Shader.hpp
+        src/Shader.cpp
+        include/LavaVK/Descriptor.hpp
+        src/Descriptor.cpp
+        include/LavaVK/Error.hpp
+        include/LavaVK/Core.hpp
 )
 
 target_include_directories(LavaVK

@@ -1,9 +1,5 @@
-#include "../include/LavaVK/Instance.hpp"
-
-#include <stdexcept>
-#include <vector>
-
-#include "LavaVK/LavaVK.hpp"
+#include "LavaVK/Instance.hpp"
+#include "LavaVK/Error.hpp"
 
 namespace LavaVK {
     Instance::Instance(const InstanceCreateInfo &info) {

@@ -1,8 +1,9 @@
-#include "../include/LavaVK/Sync.hpp"
-#include "../include/LavaVK/Device.hpp"
-#include <utility>
+#include "LavaVK/Sync.hpp"
 
-#include "LavaVK/LavaVK.hpp"
+#include "LavaVK/Core.hpp"
+#include "LavaVK/Device.hpp"
+#include "LavaVK/Instance.hpp"
+#include "LavaVK/Error.hpp"
 
 namespace LavaVK {
     Fence::Fence(Device &device, bool signaled) : m_device(device.native()) {
@@ -59,7 +60,7 @@ namespace LavaVK {
                 nullptr,
                 &m_semaphore) != VK_SUCCESS) {
             LAVAVK_ERROR("[LavaVK ERROR] Failed to create VkSemaphore.");
-                }
+        }
     }
 
     Semaphore::~Semaphore() {

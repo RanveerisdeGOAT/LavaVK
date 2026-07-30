@@ -1,403 +1,56 @@
 #ifndef LAVAVK_PIPELINE_HPP
 #define LAVAVK_PIPELINE_HPP
 
+#include <vulkan/vulkan.h>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <vulkan/vulkan.h>
+#include <fstream>
+#include <array>
+#include <filesystem>
+#include <shaderc/shaderc.hpp>
 
-#include "Buffer.hpp"
-#include "Instance.hpp"
+#include "Core.hpp"
+#include "Device.hpp"
+#include "Error.hpp"
+#include "Shader.hpp"
+#include "Descriptor.hpp"
 
 namespace LavaVK {
     class VertexLayout;
-}
-
-namespace LavaVK {
     class Format;
-}
-
-namespace LavaVK {
-    class Device;
-
-    /**
-     * @brief Shader types supported by the LavaVK abstraction layer.
-     */
-    enum class ShaderType {
-        Vertex, /**< Vertex shader (.vert or SPIR-V) */
-        Fragment, /**< Fragment/Pixel shader (.frag or SPIR-V) */
-        Compute /**< Compute shader (.comp or SPIR-V) */
-    };
-
-    enum class ShaderStage : VkShaderStageFlags {
-        None     = 0,
-        Vertex   = VK_SHADER_STAGE_VERTEX_BIT,
-        Fragment = VK_SHADER_STAGE_FRAGMENT_BIT,
-        Compute  = VK_SHADER_STAGE_COMPUTE_BIT,
-        Geometry = VK_SHADER_STAGE_GEOMETRY_BIT,
-        TessellationControl = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,
-        TesselationEvaluation = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
-        RayGeneration = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-        All      = VK_SHADER_STAGE_ALL,
-    };
-
-    // Bitwise OR operator overload to allow combining stages
-    inline ShaderStage operator|(ShaderStage a, ShaderStage b) {
-        return static_cast<ShaderStage>(
-            static_cast<VkShaderStageFlags>(a) | static_cast<VkShaderStageFlags>(b)
-        );
-    }
-
-        inline ShaderStage& operator|=(ShaderStage& a, ShaderStage b) {
-            a = a | b;
-            return a;
-        }
-
-    /**
-     * @brief Encapsulates a Vulkan shader module (`VkShaderModule`).
-     * * Supports loading directly from raw SPIR-V binaries (`.spv`), raw SPIR-V
-     * byte vectors, or dynamically compiling GLSL source files (`.vert`, `.frag`, `.comp`)
-     * using embedded Shaderc compiler support.
-     */
-    class Shader {
-    public:
-        /**
-         * @brief Loads and constructs a shader module from a file path.
-         * * Automatically detects file extension (`.spv` for compiled SPIR-V,
-         * `.vert`/`.frag`/`.comp` for GLSL source).
-         * * @param device Reference to the logical LavaVK device.
-         * @param filepath Path to the shader file on disk.
-         * @throws std::runtime_error If file opening or compilation fails.
-         */
-        Shader(Device &device, const std::string &filepath);
-
-        /**
-         * @brief Constructs a shader module directly from a vector of SPIR-V 32-bit words.
-         * * @param device Reference to the logical LavaVK device.
-         * @param code SPIR-V bytecode binary vector.
-         * @throws std::runtime_error If Vulkan shader module creation fails.
-         */
-        Shader(Device &device, const std::vector<uint32_t> &code);
-
-        /**
-         * @brief Destroys the underlying `VkShaderModule`.
-         */
-        ~Shader();
-
-        // Non-copyable
-        Shader(const Shader &) = delete;
-
-        Shader &operator=(const Shader &) = delete;
-
-        /**
-         * @brief Retrieves the native Vulkan `VkShaderModule` handle.
-         * @return Raw VkShaderModule handle.
-         */
-        [[nodiscard]] VkShaderModule native() const { return m_module; }
-
-    private:
-        /**
-         * @brief Internal helper to allocate the native Vulkan shader module.
-         * @param code SPIR-V bytecode vector.
-         */
-        void createShaderModule(const std::vector<uint32_t> &code);
-
-        Device &m_device;
-        VkShaderModule m_module{VK_NULL_HANDLE};
-    };
-
-    /**
-     * @brief High-level abstraction for Vulkan descriptor types.
-     * Maps 1:1 to Vulkan `VkDescriptorType` values.
-     */
-    enum class DescriptorType : uint32_t {
-        Sampler = 0, /**< VK_DESCRIPTOR_TYPE_SAMPLER */
-        CombinedImageSampler = 1, /**< VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER */
-        SampledImage = 2, /**< VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE */
-        StorageImage = 3, /**< VK_DESCRIPTOR_TYPE_STORAGE_IMAGE */
-        UniformTexelBuffer = 4, /**< VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER */
-        StorageTexelBuffer = 5, /**< VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER */
-        UniformBuffer = 6, /**< VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER */
-        StorageBuffer = 7, /**< VK_DESCRIPTOR_TYPE_STORAGE_BUFFER */
-        UniformBufferDynamic = 8, /**< VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC */
-        StorageBufferDynamic = 9, /**< VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC */
-        InputAttachment = 10 /**< VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT */
-    };
-
-    /**
-     * @brief Bitflags specifying shader stage accessibility for descriptors and push constants.
-     */
-    enum ShaderStageFlags : uint32_t {
-        STAGE_VERTEX_BIT = 0x00000001, /**< VK_SHADER_STAGE_VERTEX_BIT */
-        STAGE_TESSELLATION_CONTROL_BIT = 0x00000002, /**< VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT */
-        STAGE_TESSELLATION_EVALUATION_BIT = 0x00000004, /**< VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT */
-        STAGE_GEOMETRY_BIT = 0x00000008, /**< VK_SHADER_STAGE_GEOMETRY_BIT */
-        STAGE_FRAGMENT_BIT = 0x00000010, /**< VK_SHADER_STAGE_FRAGMENT_BIT */
-        STAGE_COMPUTE_BIT = 0x00000020, /**< VK_SHADER_STAGE_COMPUTE_BIT */
-        STAGE_ALL_GRAPHICS = 0x0000001F, /**< All graphics stages combined */
-        STAGE_ALL = 0x7FFFFFFF /**< All pipeline stages */
-    };
-
-    /**
-     * @brief Describes a single binding within a descriptor set layout.
-     */
-    struct DescriptorSetLayoutBinding {
-        uint32_t binding = 0; /**< Binding slot number in shader */
-        DescriptorType descriptorType = DescriptorType::UniformBuffer; /**< Type of resource bound */
-        uint32_t descriptorCount = 1; /**< Array count (1 for scalar) */
-        uint32_t stageFlags = ShaderStageFlags::STAGE_ALL_GRAPHICS; /**< Accessible shader stages */
-    };
-
-    /**
-     * @brief Defines a push constant memory range accessible in shaders.
-     */
-    struct PushConstantRange {
-        uint32_t stageFlags = ShaderStageFlags::STAGE_ALL_GRAPHICS; /**< Target shader stages */
-        uint32_t offset = 0; /**< Offset in bytes */
-        uint32_t size = 0; /**< Size in bytes */
-    };
-
-    // Forward declaration
-    class DescriptorWriter;
-
-    /**
-     * @brief Abstraction around Vulkan's `VkDescriptorSetLayout`.
-     * * Defines the interface between shader resource bindings and Vulkan descriptor sets.
-     */
-    class DescriptorSetLayout {
-    public:
-        /**
-         * @brief Fluent builder helper for constructing `DescriptorSetLayout` instances.
-         */
-        class Builder {
-        public:
-            /**
-             * @brief Constructs a new Builder for descriptor set layouts.
-             * @param device LavaVK logical device reference.
-             */
-            explicit Builder(Device &device) : m_device(device) {
-            }
-
-            /**
-             * @brief Adds a resource binding specification to the layout.
-             * * @param binding Binding index defined in the shader layout (`layout(set = X, binding = Y)`).
-             * @param descriptorType Type of descriptor resource (e.g., UniformBuffer, CombinedImageSampler).
-             * @param stageFlags Bitmask of shader stages that can access this binding.
-             * @param count Descriptor array size (defaults to 1).
-             * @return Reference to this Builder instance for method chaining.
-             */
-            Builder &addBinding(
-                uint32_t binding,
-                DescriptorType descriptorType,
-                uint32_t stageFlags,
-                uint32_t count = 1);
-
-            /**
-             * @brief Builds and instantiates the `DescriptorSetLayout`.
-             * @return `std::unique_ptr` owning the created `DescriptorSetLayout`.
-             */
-            std::unique_ptr<DescriptorSetLayout> build() const;
-
-        private:
-            Device &m_device;
-            std::unordered_map<uint32_t, DescriptorSetLayoutBinding> m_bindings{};
-        };
-
-        /**
-         * @brief Direct constructor for `DescriptorSetLayout`.
-         * @param device Reference to the LavaVK logical device.
-         * @param bindings Map of binding indices to layout binding definitions.
-         */
-        DescriptorSetLayout(Device &device, std::unordered_map<uint32_t, DescriptorSetLayoutBinding> bindings);
-
-        /**
-         * @brief Destroys the underlying `VkDescriptorSetLayout`.
-         */
-        ~DescriptorSetLayout();
-
-        // Non-copyable
-        DescriptorSetLayout(const DescriptorSetLayout &) = delete;
-
-        DescriptorSetLayout &operator=(const DescriptorSetLayout &) = delete;
-
-        /**
-         * @brief Gets the native `VkDescriptorSetLayout` handle.
-         * @return Native Vulkan layout handle.
-         */
-        [[nodiscard]] VkDescriptorSetLayout native() const { return m_layout; }
-
-        /**
-         * @brief Gets the configured bindings map.
-         * @return Map of binding indices to DescriptorSetLayoutBinding structures.
-         */
-        [[nodiscard]] const std::unordered_map<uint32_t, DescriptorSetLayoutBinding> &getBindings() const {
-            return m_bindings;
-        }
-
-    private:
-        Device &m_device;
-        VkDescriptorSetLayout m_layout{VK_NULL_HANDLE};
-        std::unordered_map<uint32_t, DescriptorSetLayoutBinding> m_bindings;
-    };
-
-    /**
-     * @brief Manages allocation pool for Vulkan descriptor sets (`VkDescriptorPool`).
-     */
-    class DescriptorPool {
-    public:
-        /**
-         * @brief Fluent builder helper for constructing `DescriptorPool` instances.
-         */
-        class Builder {
-        public:
-            /**
-             * @brief Constructs a new Builder for descriptor pool creation.
-             * @param device Reference to the LavaVK logical device.
-             */
-            explicit Builder(Device &device) : m_device(device) {
-            }
-
-            /**
-             * @brief Configures maximum pool capacity for a given descriptor type.
-             * @param descriptorType Type of descriptor to reserve slots for.
-             * @param count Number of descriptors of this type to allocate space for.
-             * @return Reference to this Builder instance.
-             */
-            Builder &addPoolSize(DescriptorType descriptorType, uint32_t count);
-
-            /**
-             * @brief Sets Vulkan creation flags (e.g., `VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT`).
-             * @param flags Vulkan flags.
-             * @return Reference to this Builder instance.
-             */
-            Builder &setPoolFlags(VkDescriptorPoolCreateFlags flags);
-
-            /**
-             * @brief Sets the maximum total number of descriptor sets allocatable from this pool.
-             * @param count Maximum set count (defaults to 1000).
-             * @return Reference to this Builder instance.
-             */
-            Builder &setMaxSets(uint32_t count);
-
-            /**
-             * @brief Builds and instantiates the `DescriptorPool`.
-             * @return `std::unique_ptr` owning the created `DescriptorPool`.
-             */
-            std::unique_ptr<DescriptorPool> build() const;
-
-        private:
-            Device &m_device;
-            std::unordered_map<DescriptorType, uint32_t> m_poolCounts{};
-            uint32_t m_maxSets = 1000;
-            VkDescriptorPoolCreateFlags m_poolFlags = 0;
-        };
-
-        /**
-         * @brief Direct constructor for `DescriptorPool`.
-         * @param device Reference to the LavaVK logical device.
-         * @param maxSets Maximum descriptor sets allocatable.
-         * @param flags Creation flags.
-         * @param poolSizes Sizes for individual descriptor types.
-         */
-        DescriptorPool(Device &device, uint32_t maxSets, VkDescriptorPoolCreateFlags flags,
-                       const std::vector<VkDescriptorPoolSize> &poolSizes);
-
-        /**
-         * @brief Destroys the underlying `VkDescriptorPool`.
-         */
-        ~DescriptorPool();
-
-        // Non-copyable
-        DescriptorPool(const DescriptorPool &) = delete;
-
-        DescriptorPool &operator=(const DescriptorPool &) = delete;
-
-        /**
-         * @brief Allocates a descriptor set using a specified layout.
-         * @param layout Layout configuration to allocate against.
-         * @param descriptorSet [out] Output handle receiving the allocated descriptor set.
-         * @return True if allocation succeeded, false otherwise.
-         */
-        bool allocateDescriptorSet(VkDescriptorSetLayout layout, VkDescriptorSet &descriptorSet) const;
-
-        /**
-         * @brief Frees one or more allocated descriptor sets back to this pool.
-         * @param descriptorSets List of descriptor set handles to free.
-         */
-        void freeDescriptorSets(const std::vector<VkDescriptorSet> &descriptorSets) const;
-
-        /**
-         * @brief Gets the native Vulkan `VkDescriptorPool` handle.
-         * @return Native VkDescriptorPool handle.
-         */
-        [[nodiscard]] VkDescriptorPool native() const { return m_pool; }
-
-    private:
-        friend class DescriptorWriter;
-
-        Device &m_device;
-        VkDescriptorPool m_pool{VK_NULL_HANDLE};
-    };
-
-    /**
-     * @brief Helper class to bind buffers and image samplers to descriptor set slots.
-     */
-    class DescriptorWriter {
-    public:
-        /**
-         * @brief Constructs a DescriptorWriter.
-         * @param setLayout Target descriptor layout description.
-         * @param pool Descriptor pool from which to allocate/update sets.
-         */
-        DescriptorWriter(DescriptorSetLayout &setLayout, DescriptorPool &pool);
-
-        /**
-         * @brief Enqueues a buffer binding write operation.
-         * @param binding Target layout binding index.
-         * @param bufferInfo Pointer to Vulkan descriptor buffer info.
-         * @return Reference to this writer for chaining.
-         */
-        DescriptorWriter &writeBuffer(uint32_t binding, VkDescriptorBufferInfo *bufferInfo);
-
-        /**
-         * @brief Enqueues an image/sampler binding write operation.
-         * @param binding Target layout binding index.
-         * @param imageInfo Pointer to Vulkan descriptor image info.
-         * @return Reference to this writer for chaining.
-         */
-        DescriptorWriter &writeImage(uint32_t binding, VkDescriptorImageInfo *imageInfo);
-
-        /**
-         * @brief Allocates a new descriptor set from the pool and writes the configured descriptor updates.
-         * @param set [out] Output handle receiving the allocated and populated set.
-         * @return True if allocation and writing succeeded.
-         */
-        bool build(VkDescriptorSet &set);
-
-        /**
-         * @brief Overwrites an existing allocated descriptor set with configured write operations.
-         * @param set Target descriptor set handle to overwrite.
-         */
-        void overwrite(VkDescriptorSet &set);
-
-    private:
-        DescriptorSetLayout &m_setLayout;
-        DescriptorPool &m_pool;
-        std::vector<VkWriteDescriptorSet> m_writes;
-    };
 
     /**
      * @brief Encapsulates a Vulkan `VkPipelineLayout`.
-     * * Defines descriptor set layouts and push constants used across pipeline stages.
+     *
+     * @details
+     * Defines descriptor set layouts and push constants used across pipeline
+     * stages. A `PipelineLayout` is required to construct both a
+     * `GraphicsPipeline` and to record `pushConstants`/descriptor-binding
+     * commands against a command buffer, since it declares which resources
+     * and push constant ranges shaders may access. `PipelineLayout` is
+     * non-copyable RAII: the underlying `VkPipelineLayout` is created in the
+     * constructor and destroyed in the destructor.
+     *
+     * Example:
+     * @code
+     * LavaVK::PushConstantRange mvpRange{
+     *     .stageFlags = LavaVK::STAGE_VERTEX_BIT,
+     *     .offset = 0,
+     *     .size = sizeof(glm::mat4)
+     * };
+     * LavaVK::PipelineLayout pipelineLayout(device, {}, { mvpRange });
+     * @endcode
      */
     class PipelineLayout {
     public:
         /**
          * @brief Constructs a pipeline layout.
-         * * @param device Reference to the LavaVK logical device.
+         * @param device Reference to the LavaVK logical device.
          * @param descriptorSetLayouts Collection of descriptor set layouts bound to this pipeline layout.
          * @param pushConstantRanges Push constant ranges accessible by this pipeline layout.
+         * @throw std::runtime_error If `vkCreatePipelineLayout` fails.
          */
         PipelineLayout(Device &device,
                        const std::vector<const DescriptorSetLayout *> &descriptorSetLayouts = {},
@@ -426,24 +79,50 @@ namespace LavaVK {
 
     /**
      * @brief Wrapper for Vulkan `VkRenderPass`.
-     * * Configures attachments (color, depth/stencil), subpasses, and dependencies.
+     *
+     * @details
+     * Configures attachments (color, depth/stencil), subpasses, and
+     * dependencies. Most applications only need a single color (+ optional
+     * depth) attachment render pass, provided by the convenience
+     * constructor; applications with more complex attachment layouts
+     * (multiple subpasses, input attachments, MSAA resolve targets, ...)
+     * can instead supply a raw `VkRenderPassCreateInfo` directly.
+     * `RenderPass` is non-copyable RAII: the underlying `VkRenderPass` is
+     * created in the constructor and destroyed in the destructor.
+     *
+     * Example:
+     * @code
+     * LavaVK::RenderPass renderPass(
+     *     device,
+     *     LavaVK::Format(LavaVK::ChannelOrder::BGRA, LavaVK::BitDepth::B8, LavaVK::NumericType::Srgb),
+     *     LavaVK::Format(LavaVK::ChannelOrder::D, LavaVK::BitDepth::B32, LavaVK::NumericType::Float)
+     * );
+     * @endcode
      */
     class RenderPass {
     public:
         /**
          * @brief Helper constructor for a standard single-subpass color + depth render pass.
-         * * @param device Reference to the LavaVK logical device.
+         * @param device Reference to the LavaVK logical device.
          * @param colorFormat Format for the color attachment.
          * @param depthFormat Format for depth attachment (`VK_FORMAT_UNDEFINED` to disable depth).
          * @param samples Multisample count flag (defaults to 1 sample).
+         * @throw std::runtime_error If `vkCreateRenderPass` fails.
          */
-        RenderPass(Device &device, Format colorFormat, Format depthFormat = Format(ChannelOrder::Undefined, BitDepth::Undefined, NumericType::Undefined),
+        RenderPass(Device &device, Format colorFormat,
+                   Format depthFormat = Format(ChannelOrder::Undefined, BitDepth::Undefined, NumericType::Undefined),
                    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
 
         /**
          * @brief Explicit constructor using full Vulkan create info.
-         * * @param device Reference to the LavaVK logical device.
+         * @details Intended for render passes whose attachment/subpass
+         * layout does not fit the single-color-plus-depth convenience
+         * constructor above (e.g. multiple subpasses or additional
+         * attachments); the caller is responsible for filling in
+         * @p createInfo entirely.
+         * @param device Reference to the LavaVK logical device.
          * @param createInfo Raw Vulkan `VkRenderPassCreateInfo` structure.
+         * @throw std::runtime_error If `vkCreateRenderPass` fails.
          */
         RenderPass(Device &device, const VkRenderPassCreateInfo &createInfo);
 
@@ -459,11 +138,14 @@ namespace LavaVK {
 
         /**
          * @brief Get color format.
+         * @return The `VkFormat` used for this render pass's color attachment.
          */
         VkFormat getColorFormat() const { return m_colorFormat; }
 
         /**
          * @brief Get depth format.
+         * @return The `VkFormat` used for this render pass's depth attachment,
+         * or `VK_FORMAT_UNDEFINED` if depth is disabled.
          */
         VkFormat getDepthFormat() const { return m_depthFormat; }
 
@@ -480,75 +162,75 @@ namespace LavaVK {
         VkFormat m_colorFormat{VK_FORMAT_UNDEFINED};
     };
 
-    /** @brief Primitive assembly topology type. */
+    /** @brief Primitive assembly topology type, mirroring `VkPrimitiveTopology`. */
     enum class Topology : uint32_t {
-        POINTS = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
-        LINES = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-        LINE_STRIP = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
-        TRIANGLES = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-        TRIANGLE_STRIP = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
-        TRIANGLE_FAN = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
-        LINE_LIST_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY,
-        LINE_STRIP_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY,
-        TRIANGLE_LIST_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY,
-        TRIANGLE_STRIP_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY,
-        PATCHES = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST
+        POINTS = VK_PRIMITIVE_TOPOLOGY_POINT_LIST, /**< Each vertex is a separate point. */
+        LINES = VK_PRIMITIVE_TOPOLOGY_LINE_LIST, /**< Each pair of vertices forms an independent line. */
+        LINE_STRIP = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP, /**< Consecutive vertices form a connected line strip. */
+        TRIANGLES = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, /**< Each triplet of vertices forms an independent triangle. */
+        TRIANGLE_STRIP = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, /**< Consecutive vertices form a connected triangle strip. */
+        TRIANGLE_FAN = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN, /**< Vertices form a triangle fan around the first vertex. */
+        LINE_LIST_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY, /**< Line list with adjacency information, for geometry shaders. */
+        LINE_STRIP_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY, /**< Line strip with adjacency information, for geometry shaders. */
+        TRIANGLE_LIST_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY, /**< Triangle list with adjacency information, for geometry shaders. */
+        TRIANGLE_STRIP_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY, /**< Triangle strip with adjacency information, for geometry shaders. */
+        PATCHES = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST /**< Vertices form patches, for tessellation. */
     };
 
-    /** @brief Rasterization polygon rendering mode. */
+    /** @brief Rasterization polygon rendering mode, mirroring `VkPolygonMode`. */
     enum class PolygonMode : uint32_t {
-        FILL = VK_POLYGON_MODE_FILL,
-        LINE = VK_POLYGON_MODE_LINE,
-        POINT = VK_POLYGON_MODE_POINT
+        FILL = VK_POLYGON_MODE_FILL, /**< Polygons are rasterized as filled regions. */
+        LINE = VK_POLYGON_MODE_LINE, /**< Polygon edges are rasterized as wireframe lines. */
+        POINT = VK_POLYGON_MODE_POINT /**< Polygon vertices are rasterized as points. */
     };
 
-    /** @brief Face culling options. */
+    /** @brief Face culling options, mirroring `VkCullModeFlagBits`. */
     enum class CullMode : uint32_t {
-        NONE = VK_CULL_MODE_NONE,
-        FRONT = VK_CULL_MODE_FRONT_BIT,
-        BACK = VK_CULL_MODE_BACK_BIT,
-        FRONT_AND_BACK = VK_CULL_MODE_FRONT_AND_BACK
+        NONE = VK_CULL_MODE_NONE, /**< No faces are culled. */
+        FRONT = VK_CULL_MODE_FRONT_BIT, /**< Front-facing faces are culled. */
+        BACK = VK_CULL_MODE_BACK_BIT, /**< Back-facing faces are culled. */
+        FRONT_AND_BACK = VK_CULL_MODE_FRONT_AND_BACK /**< All faces are culled. */
     };
 
-    /** @brief Vertex winding order determining front-facing polygons. */
+    /** @brief Vertex winding order determining front-facing polygons, mirroring `VkFrontFace`. */
     enum class FrontFace : uint32_t {
-        COUNTER_CLOCKWISE = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-        CLOCKWISE = VK_FRONT_FACE_CLOCKWISE
+        COUNTER_CLOCKWISE = VK_FRONT_FACE_COUNTER_CLOCKWISE, /**< Counter-clockwise winding is considered front-facing. */
+        CLOCKWISE = VK_FRONT_FACE_CLOCKWISE /**< Clockwise winding is considered front-facing. */
     };
 
-    /** @brief Depth/Stencil comparison operations. */
+    /** @brief Depth/Stencil comparison operations, mirroring `VkCompareOp`. */
     enum class CompareOperation : uint32_t {
-        NEVER = VK_COMPARE_OP_NEVER,
-        LESS = VK_COMPARE_OP_LESS,
-        EQUAL = VK_COMPARE_OP_EQUAL,
-        LESS_OR_EQUAL = VK_COMPARE_OP_LESS_OR_EQUAL,
-        GREATER = VK_COMPARE_OP_GREATER,
-        NOT_EQUAL = VK_COMPARE_OP_NOT_EQUAL,
-        GREATER_OR_EQUAL = VK_COMPARE_OP_GREATER_OR_EQUAL,
-        ALWAYS = VK_COMPARE_OP_ALWAYS
+        NEVER = VK_COMPARE_OP_NEVER, /**< Comparison always fails. */
+        LESS = VK_COMPARE_OP_LESS, /**< Passes if the new value is less than the stored value. */
+        EQUAL = VK_COMPARE_OP_EQUAL, /**< Passes if the new value equals the stored value. */
+        LESS_OR_EQUAL = VK_COMPARE_OP_LESS_OR_EQUAL, /**< Passes if the new value is less than or equal to the stored value. */
+        GREATER = VK_COMPARE_OP_GREATER, /**< Passes if the new value is greater than the stored value. */
+        NOT_EQUAL = VK_COMPARE_OP_NOT_EQUAL, /**< Passes if the new value does not equal the stored value. */
+        GREATER_OR_EQUAL = VK_COMPARE_OP_GREATER_OR_EQUAL, /**< Passes if the new value is greater than or equal to the stored value. */
+        ALWAYS = VK_COMPARE_OP_ALWAYS /**< Comparison always passes. */
     };
 
-    /** @brief Color blending factors for source and destination channels. */
+    /** @brief Color blending factors for source and destination channels, mirroring `VkBlendFactor`. */
     enum class BlendFactor : uint32_t {
-        ZERO = VK_BLEND_FACTOR_ZERO,
-        ONE = VK_BLEND_FACTOR_ONE,
-        SRC_COLOR = VK_BLEND_FACTOR_SRC_COLOR,
-        ONE_MINUS_SRC_COLOR = VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
-        DST_COLOR = VK_BLEND_FACTOR_DST_COLOR,
-        ONE_MINUS_DST_COLOR = VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR,
-        SRC_ALPHA = VK_BLEND_FACTOR_SRC_ALPHA,
-        ONE_MINUS_SRC_ALPHA = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-        DST_ALPHA = VK_BLEND_FACTOR_DST_ALPHA,
-        ONE_MINUS_DST_ALPHA = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA
+        ZERO = VK_BLEND_FACTOR_ZERO, /**< Factor of (0, 0, 0, 0). */
+        ONE = VK_BLEND_FACTOR_ONE, /**< Factor of (1, 1, 1, 1). */
+        SRC_COLOR = VK_BLEND_FACTOR_SRC_COLOR, /**< Factor equal to the source color. */
+        ONE_MINUS_SRC_COLOR = VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR, /**< Factor equal to (1 - source color). */
+        DST_COLOR = VK_BLEND_FACTOR_DST_COLOR, /**< Factor equal to the destination color. */
+        ONE_MINUS_DST_COLOR = VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR, /**< Factor equal to (1 - destination color). */
+        SRC_ALPHA = VK_BLEND_FACTOR_SRC_ALPHA, /**< Factor equal to the source alpha. */
+        ONE_MINUS_SRC_ALPHA = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, /**< Factor equal to (1 - source alpha). */
+        DST_ALPHA = VK_BLEND_FACTOR_DST_ALPHA, /**< Factor equal to the destination alpha. */
+        ONE_MINUS_DST_ALPHA = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA /**< Factor equal to (1 - destination alpha). */
     };
 
-    /** @brief Arithmetic operations for color blending. */
+    /** @brief Arithmetic operations for color blending, mirroring `VkBlendOp`. */
     enum class BlendOperation : uint32_t {
-        ADD = VK_BLEND_OP_ADD,
-        SUBTRACT = VK_BLEND_OP_SUBTRACT,
-        REVERSE_SUBTRACT = VK_BLEND_OP_REVERSE_SUBTRACT,
-        MIN = VK_BLEND_OP_MIN,
-        MAX = VK_BLEND_OP_MAX
+        ADD = VK_BLEND_OP_ADD, /**< Source and destination contributions are added. */
+        SUBTRACT = VK_BLEND_OP_SUBTRACT, /**< Destination contribution is subtracted from source. */
+        REVERSE_SUBTRACT = VK_BLEND_OP_REVERSE_SUBTRACT, /**< Source contribution is subtracted from destination. */
+        MIN = VK_BLEND_OP_MIN, /**< The minimum of source and destination is used. */
+        MAX = VK_BLEND_OP_MAX /**< The maximum of source and destination is used. */
     };
 
     /**
@@ -560,7 +242,7 @@ namespace LavaVK {
 
         PipelineLayout *layout = nullptr; /**< Required pipeline layout configuration */
         RenderPass *renderPass = nullptr; /**< Compatible render pass */
-        VertexLayout *vertexLayout = nullptr;
+        VertexLayout *vertexLayout = nullptr; /**< Vertex input binding/attribute layout; leave `nullptr` for pipelines with no vertex input. */
 
         Topology topology = Topology::TRIANGLES; /**< Primitive topology type */
 
@@ -589,14 +271,38 @@ namespace LavaVK {
 
     /**
      * @brief Abstraction around Vulkan's graphics pipeline (`VkPipeline`).
-     * * Manages full graphics state setup including shaders, rasterization,
-     * multisampling, depth/stencil, blending, and dynamic state bindings.
+     *
+     * @details
+     * Manages full graphics state setup including shaders, rasterization,
+     * multisampling, depth/stencil, blending, and dynamic state bindings,
+     * all configured through a single #GraphicsPipelineCreateInfo rather
+     * than the half-dozen `VkGraphicsPipelineCreateInfo` sub-structures
+     * Vulkan normally requires. `GraphicsPipeline` is move-only RAII: the
+     * underlying `VkPipeline` is created in the constructor and destroyed
+     * in the destructor.
+     *
+     * Example:
+     * @code
+     * LavaVK::GraphicsPipeline pipeline(device, {
+     *     .vertexShader = &vertexShader,
+     *     .fragmentShader = &fragmentShader,
+     *     .layout = &pipelineLayout,
+     *     .renderPass = &renderPass,
+     *     .vertexLayout = &vertexLayout,
+     *     .topology = LavaVK::Topology::TRIANGLES,
+     *     .cullMode = LavaVK::CullMode::BACK,
+     *     .depthTest = true,
+     *     .depthWrite = true,
+     * });
+     *
+     * cmd.bindPipeline(pipeline);
+     * @endcode
      */
     class GraphicsPipeline {
     public:
         /**
          * @brief Constructs and compiles a native Vulkan graphics pipeline.
-         * * @param device Reference to the LavaVK logical device.
+         * @param device Reference to the LavaVK logical device.
          * @param info Pipeline configuration descriptor.
          * @throws std::runtime_error If required parameters are missing or Vulkan pipeline compilation fails.
          */
@@ -606,6 +312,7 @@ namespace LavaVK {
 
         /**
          * @brief Destroys the underlying `VkPipeline`.
+         * @details A moved-from `GraphicsPipeline` is a no-op.
          */
         ~GraphicsPipeline();
 
@@ -615,8 +322,18 @@ namespace LavaVK {
         GraphicsPipeline &operator=(const GraphicsPipeline &) = delete;
 
         // Moveable
+        /**
+         * @brief Move constructor. Transfers ownership of the underlying `VkPipeline`.
+         * @param other The pipeline being moved from; left in an empty, destructible state.
+         */
         GraphicsPipeline(GraphicsPipeline &&other) noexcept;
 
+        /**
+         * @brief Move assignment operator. Destroys any currently owned pipeline
+         * and transfers ownership of @p other's `VkPipeline`.
+         * @param other The pipeline being moved from; left in an empty, destructible state.
+         * @return Reference to this pipeline.
+         */
         GraphicsPipeline &operator=(GraphicsPipeline &&other) noexcept;
 
         /**
@@ -639,33 +356,44 @@ namespace LavaVK {
         VkPipeline m_pipeline = VK_NULL_HANDLE;
     };
 
+    /**
+     * @brief Pipeline stage bitmask used for synchronization, mirroring `VkPipelineStageFlagBits`.
+     * @details Used to specify at which stage(s) of the pipeline a wait
+     * semaphore applies when submitting work (see `Device::submit`).
+     * Multiple stages may be combined with the bitwise OR operator.
+     */
     enum class PipelineStage : VkPipelineStageFlags {
-        None                   = 0,
-        TopOfPipe              = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        DrawIndirect           = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
-        VertexInput            = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
-        VertexShader           = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
-        TessellationControl    = VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT,
-        TessellationEvaluation = VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT,
-        GeometryShader         = VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT,
-        FragmentShader         = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        EarlyFragmentTests     = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-        LateFragmentTests      = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-        ColorAttachmentOutput  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        ComputeShader          = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        Transfer               = VK_PIPELINE_STAGE_TRANSFER_BIT,
-        BottomOfPipe           = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-        Host                   = VK_PIPELINE_STAGE_HOST_BIT,
-        AllGraphics            = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-        AllCommands            = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+        None = 0, /**< No stages. */
+        TopOfPipe = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, /**< The very start of the pipeline. */
+        DrawIndirect = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, /**< Indirect draw/dispatch command reads. */
+        VertexInput = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, /**< Vertex/index buffer reads. */
+        VertexShader = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, /**< Vertex shader execution. */
+        TessellationControl = VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT, /**< Tessellation control shader execution. */
+        TessellationEvaluation = VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT, /**< Tessellation evaluation shader execution. */
+        GeometryShader = VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT, /**< Geometry shader execution. */
+        FragmentShader = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, /**< Fragment shader execution. */
+        EarlyFragmentTests = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, /**< Depth/stencil tests before fragment shading. */
+        LateFragmentTests = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, /**< Depth/stencil tests after fragment shading. */
+        ColorAttachmentOutput = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, /**< Color attachment writes; the typical wait stage for swapchain image availability. */
+        ComputeShader = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, /**< Compute shader execution. */
+        Transfer = VK_PIPELINE_STAGE_TRANSFER_BIT, /**< Copy/blit/clear transfer commands. */
+        BottomOfPipe = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, /**< The very end of the pipeline. */
+        Host = VK_PIPELINE_STAGE_HOST_BIT, /**< Host (CPU) memory access. */
+        AllGraphics = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, /**< All graphics pipeline stages. */
+        AllCommands = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT /**< All command-processing stages. */
     };
 
+    /**
+     * @brief Combines two PipelineStage flags.
+     * @param lhs First set of pipeline stage flags.
+     * @param rhs Second set of pipeline stage flags.
+     * @return A #PipelineStage containing the bitwise OR of @p lhs and @p rhs.
+     */
     inline PipelineStage operator|(PipelineStage lhs, PipelineStage rhs) {
         return static_cast<PipelineStage>(
             static_cast<VkPipelineStageFlags>(lhs) | static_cast<VkPipelineStageFlags>(rhs)
         );
     }
-
 } // namespace LavaVK
 
 #endif // LAVAVK_PIPELINE_HPP

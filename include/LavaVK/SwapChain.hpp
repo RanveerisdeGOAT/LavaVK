@@ -4,16 +4,18 @@
 #include <memory>
 #include <vector>
 #include <vulkan/vulkan.h>
+#include <algorithm>
+#include <limits>
+#include <stdexcept>
 
 #include "Buffer.hpp"
 #include "Surface.hpp"
 #include "Sync.hpp"
+#include "Device.hpp"
+#include "Surface.hpp"
 
 namespace LavaVK {
-    class Device;
     class RenderPass;
-    class Framebuffer;
-
     /**
      * @brief Maximum number of frames that can be processed concurrently by the CPU and GPU.
      * Double-buffering (2) or triple-buffering allows the CPU to record commands for frame N+1
@@ -55,6 +57,7 @@ namespace LavaVK {
 
         // Disable copy semantics as swapchain and sync primitives own unique Vulkan handles
         SwapChain(const SwapChain &) = delete;
+
         SwapChain &operator=(const SwapChain &) = delete;
 
         /**
@@ -221,30 +224,32 @@ namespace LavaVK {
          */
         void cleanup();
 
-        Device &m_device;        ///< Reference to logical device wrapper.
-        Surface &m_surface;      ///< Reference to presentation surface wrapper.
-        RenderPass &m_renderPass;///< Reference to render pass used to build framebuffers.
+        Device &m_device; ///< Reference to logical device wrapper.
+        Surface &m_surface; ///< Reference to presentation surface wrapper.
+        RenderPass &m_renderPass; ///< Reference to render pass used to build framebuffers.
 
         VkSwapchainKHR m_swapchain = VK_NULL_HANDLE; ///< Native Vulkan swapchain handle.
 
-        VkFormat m_colorFormat = VK_FORMAT_UNDEFINED;///< Requested color format.
-        VkFormat m_depthFormat = VK_FORMAT_UNDEFINED;///< Requested depth format.
-        VkFormat m_format = VK_FORMAT_UNDEFINED;     ///< Selected surface color format.
-        VkExtent2D m_extent{};                       ///< Dimensions of swapchain images.
+        VkFormat m_colorFormat = VK_FORMAT_UNDEFINED; ///< Requested color format.
+        VkFormat m_depthFormat = VK_FORMAT_UNDEFINED; ///< Requested depth format.
+        VkFormat m_format = VK_FORMAT_UNDEFINED; ///< Selected surface color format.
+        VkExtent2D m_extent{}; ///< Dimensions of swapchain images.
 
-        std::vector<Image> m_images;                 ///< Wrapped swapchain color images.
-        std::unique_ptr<Image> m_depthImage;         ///< Dedicated depth image attachment.
-        std::vector<Framebuffer> m_framebuffers;     ///< Framebuffers bound to color + depth images.
+        std::vector<Image> m_images; ///< Wrapped swapchain color images.
+        std::unique_ptr<Image> m_depthImage; ///< Dedicated depth image attachment.
+        std::vector<Framebuffer> m_framebuffers; ///< Framebuffers bound to color + depth images.
 
-        size_t m_currentFrame = 0;                   ///< Index of current active frame slot (0..MAX_FRAMES_IN_FLIGHT - 1).
+        size_t m_currentFrame = 0; ///< Index of current active frame slot (0..MAX_FRAMES_IN_FLIGHT - 1).
 
         // Synchronization Primitives (Per Frame in Flight)
-        std::vector<Semaphore> m_imageAvailable;     ///< Semaphores signaled when a frame's image is ready for rendering.
-        std::vector<Fence> m_inFlightFences;         ///< Fences preventing CPU from overwriting command buffers in use by GPU.
+        std::vector<Semaphore> m_imageAvailable; ///< Semaphores signaled when a frame's image is ready for rendering.
+        std::vector<Fence> m_inFlightFences; ///< Fences preventing CPU from overwriting command buffers in use by GPU.
 
         // Synchronization Primitives (Per Swapchain Image)
-        std::vector<Semaphore> m_renderFinished;     ///< Semaphores signaled when rendering to a specific image is complete.
-        std::vector<VkFence> m_imagesInFlight;       ///< Tracks which CPU-GPU fence is currently rendering into each swapchain image.
+        std::vector<Semaphore> m_renderFinished;
+        ///< Semaphores signaled when rendering to a specific image is complete.
+        std::vector<VkFence> m_imagesInFlight;
+        ///< Tracks which CPU-GPU fence is currently rendering into each swapchain image.
     };
 } // namespace LavaVK
 
