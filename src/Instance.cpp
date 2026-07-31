@@ -8,7 +8,7 @@ namespace LavaVK {
         app.pApplicationName = info.applicationName.c_str();
         app.applicationVersion = info.applicationVersion;
         app.pEngineName = "LavaVK";
-        app.engineVersion = VK_MAKE_VERSION(0, 9, 1);
+        app.engineVersion = VK_MAKE_VERSION(0, 10, 0);
         app.apiVersion = VK_API_VERSION_1_3;
 
         std::vector<const char *> extensions = info.extensions;

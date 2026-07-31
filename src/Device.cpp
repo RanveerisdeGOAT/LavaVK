@@ -1,4 +1,4 @@
-#include "../include/LavaVK/Device.hpp"
+#include "LavaVK/Device.hpp"
 #include "LavaVK/Queue.hpp"
 #include "LavaVK/Surface.hpp"
 #include "LavaVK/Sync.hpp"

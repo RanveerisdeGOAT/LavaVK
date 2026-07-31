@@ -1,4 +1,4 @@
-# LavaVK 0.9.2-indev
+# LavaVK 0.10.0-indev
 
 > Currently in development.
 
@@ -74,15 +74,19 @@ The included examples may use GLFW for window creation and surface management.
 
 ## Installation
 
+### Option 1: Add LavaVK as a CMake subdirectory
+
 Clone the repository:
 
 ```bash
 git clone https://github.com/RanveerisdeGOAT/LavaVK.git
 ```
 
-LavaVK can be included in another CMake project using `add_subdirectory()`:
+Add LavaVK to your project:
 
 ```cmake
+cmake_minimum_required(VERSION 3.20)
+
 project(Example)
 
 add_subdirectory(LavaVK)
@@ -96,6 +100,59 @@ target_link_libraries(Example
         LavaVK::LavaVK
 )
 ```
+
+Your project structure should look like:
+
+```
+Example/
+├── CMakeLists.txt
+├── main.cpp
+└── LavaVK/
+    ├── CMakeLists.txt
+    ├── include/
+    └── src/
+```
+
+---
+
+### Option 2: Install LavaVK as a CMake package
+
+Clone and build LavaVK:
+
+```bash
+git clone https://github.com/RanveerisdeGOAT/LavaVK.git
+cd LavaVK
+
+cmake -B build -DCMAKE_INSTALL_PREFIX=/path/to/install
+cmake --build build
+cmake --install build
+```
+
+Then use LavaVK from another CMake project:
+
+```cmake
+cmake_minimum_required(VERSION 3.20)
+
+project(Example)
+
+find_package(LavaVK REQUIRED)
+
+add_executable(Example
+    main.cpp
+)
+
+target_link_libraries(Example
+    PRIVATE
+        LavaVK::LavaVK
+)
+```
+
+If CMake cannot find LavaVK, specify the installation path:
+
+```bash
+cmake -B build -DCMAKE_PREFIX_PATH=/path/to/install
+```
+
 
 ---
 

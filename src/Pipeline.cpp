@@ -1,4 +1,4 @@
-#include "include/LavaVK/Pipeline.hpp"
+#include "LavaVK/Pipeline.hpp"
 #include "LavaVK/Buffer.hpp"
 #include "LavaVK/Descriptor.hpp"
 #include "LavaVK/Instance.hpp"
