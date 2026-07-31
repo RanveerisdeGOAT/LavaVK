@@ -2,11 +2,16 @@
 
 All notable changes to LavaVK are documented here.
 
+## [0.9.1-indev] — 2026-07-31
+
+> **Development status:** In development
+
+### Fixed
+* Fixed `LavaVK::Textures` move assignment operator.
+
 ## [0.9.0-indev] — 2026-07-30
 
 > **Development status:** In development
->
-> **API stability:** Subject to change before 1.0.0
 
 ### Added
 

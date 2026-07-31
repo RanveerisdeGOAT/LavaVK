@@ -425,12 +425,17 @@ namespace LavaVK {
 
         Texture &operator=(const Texture &) = delete;
 
-        Texture(Texture &&other) noexcept
-            : m_device(other.m_device), m_sampler(other.m_sampler) {
+        Texture(Texture&& other) noexcept
+    : m_device(other.m_device),
+      m_image(std::move(other.m_image)),
+      memory(other.memory),
+      m_sampler(other.m_sampler) {
+
+            other.memory = VK_NULL_HANDLE;
             other.m_sampler = VK_NULL_HANDLE;
         }
 
-        Texture &operator=(Texture &&) = delete;
+        Texture& operator=(Texture&&) = delete;
 
         /**
          * @brief Returns the GPU image backing this texture.

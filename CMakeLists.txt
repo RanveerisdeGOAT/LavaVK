@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20) # Avoid CMP0100/CMP0180 issues with newer CMake versions
 
-project(LavaVK VERSION 1.0.0 LANGUAGES CXX)
+project(LavaVK VERSION 0.9.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
