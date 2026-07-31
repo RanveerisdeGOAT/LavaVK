@@ -12,21 +12,6 @@ find_package(Vulkan REQUIRED)
 set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/glm/glm)
 
-# SHADERC (Disable all install targets for sub-dependencies)
-set(SHADERC_SKIP_INSTALL ON CACHE BOOL "" FORCE)
-set(SHADERC_SKIP_TESTS ON CACHE BOOL "" FORCE)
-set(SHADERC_SKIP_EXAMPLES ON CACHE BOOL "" FORCE)
-set(SHADERC_SKIP_COPYRIGHT_CHECK ON CACHE BOOL "" FORCE)
-
-set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "" FORCE)
-set(ENABLE_GLSLANG_INSTALL OFF CACHE BOOL "" FORCE) # Key fix for glslang export error
-set(SPIRV_SKIP_INSTALL ON CACHE BOOL "" FORCE)
-set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE BOOL "" FORCE)
-set(ENABLE_CTEST OFF CACHE BOOL "" FORCE)
-
-# Pass EXCLUDE_FROM_ALL so CMake ignores install targets inside shaderc
-add_subdirectory(external/shaderc EXCLUDE_FROM_ALL)
-
 # LavaVK
 add_library(LavaVK
         src/Instance.cpp
@@ -43,6 +28,8 @@ add_library(LavaVK
         include/LavaVK/Core.hpp
         src/Texture.cpp
 )
+
+find_program(GLSLC_EXECUTABLE glslc REQUIRED)
 
 target_include_directories(LavaVK
         PUBLIC

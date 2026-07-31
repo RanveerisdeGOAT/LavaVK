@@ -1,4 +1,4 @@
-# LavaVK 0.9.1-indev
+# LavaVK 0.9.2-indev
 
 > Currently in development.
 
@@ -62,7 +62,7 @@ There are no custom rendering abstractions or engine architecture imposed on use
 ## Requirements & Dependencies
 
 * [Vulkan SDK](https://vulkan.lunarg.com/)
-* Shaderc - included in repo
+* glslc - included in [Vulkan SDK](https://vulkan.lunarg.com/) *Make sure you include it during installation.*
 * GLM - included in repo
 * STBI image - included in repo
 

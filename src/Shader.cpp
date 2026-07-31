@@ -25,38 +25,45 @@ namespace LavaVK {
             if (!file.is_open()) {
                 LAVAVK_ERROR("[Shaderc Error] Failed to open GLSL file: " + filepath);
             }
+
             std::stringstream buffer;
             buffer << file.rdbuf();
             std::string sourceCode = buffer.str();
 
-            shaderc::Compiler compiler;
-            shaderc::CompileOptions options;
+            std::filesystem::path output =
+                    std::filesystem::temp_directory_path() /
+                    (std::filesystem::path(filepath).filename().string() + ".spv");
 
-            options.SetOptimizationLevel(shaderc_optimization_level_performance);
-            options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
+            std::string command =
+                    "glslc \"" + filepath +
+                    "\" -o \"" + output.string() + "\"";
 
-            shaderc_shader_kind kind;
-            switch (type) {
-                case LavaVK::ShaderType::Vertex: kind = shaderc_glsl_vertex_shader;
-                    break;
-                case LavaVK::ShaderType::Fragment: kind = shaderc_glsl_fragment_shader;
-                    break;
-                case LavaVK::ShaderType::Compute: kind = shaderc_glsl_compute_shader;
-                    break;
+            int result = std::system(command.c_str());
+
+            if (result != 0) {
+                LAVAVK_ERROR("[LavaVK ERROR] Failed to compile shader.");
             }
 
-            shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(
-                sourceCode,
-                kind,
-                filepath.c_str(),
-                options
+            std::ifstream file_output(output, std::ios::binary | std::ios::ate);
+
+            if (!file_output)
+                LAVAVK_ERROR("Failed to open compiled SPIR-V.");
+
+            size_t size = static_cast<size_t>(file_output.tellg());
+
+            if (size % sizeof(uint32_t) != 0)
+                LAVAVK_ERROR("Invalid SPIR-V file.");
+
+            file_output.seekg(0);
+
+            std::vector<uint32_t> spirv(size / sizeof(uint32_t));
+
+            file_output.read(
+                reinterpret_cast<char*>(spirv.data()),
+                size
             );
 
-            if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
-                LAVAVK_ERROR("[Shaderc Error] " + module.GetErrorMessage());
-            }
-
-            return {module.cbegin(), module.cend()};
+            return spirv;
         }
 
         static std::vector<uint32_t> readSpvFile(const std::string &filename) {

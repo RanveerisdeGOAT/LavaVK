@@ -2,6 +2,14 @@
 
 All notable changes to LavaVK are documented here.
 
+## [0.9.2-indev] — 2026-07-31
+
+> **Development status:** In development
+
+### Fixed
+* Removed `shaderc` dependency, reducing repo size.
+
+
 ## [0.9.1-indev] — 2026-07-31
 
 > **Development status:** In development
