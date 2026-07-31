@@ -1,4 +1,4 @@
-# LavaVK 0.10.1-indev
+# LavaVK 0.11.0-indev
 
 > Currently in development.
 

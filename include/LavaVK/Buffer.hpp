@@ -281,6 +281,12 @@ namespace LavaVK {
          */
         MemoryUsage memory() const { return m_memoryUsage; }
 
+        /**
+         * @brief Copies to a buffer
+         * @param dstBuffer Buffer to copy to.
+         */
+        void copyToBuffer(Buffer &dstBuffer) const;
+
     private:
         Device *m_device = nullptr;
 

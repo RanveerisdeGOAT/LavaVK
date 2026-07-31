@@ -1,6 +1,14 @@
 # Changelog
 
 All notable changes to LavaVK are documented here.
+## [0.11.0-indev] — 2026-07-31
+
+> **Development status:** In development
+
+### Added
+* Added `void copyToBuffer(Buffer &dstBuffer) const;` usefull for stage buffers.
+
+---
 
 ## [0.10.1-indev] — 2026-07-31
 
@@ -9,6 +17,8 @@ All notable changes to LavaVK are documented here.
 ### Fixed
 * Fixed binding problem in `VertexLayout`.
 * Removed Release vs Debug error handler in `Error.hpp`.
+
+---
 
 ## [0.10.0-indev] — 2026-07-31
 
@@ -97,6 +107,8 @@ If CMake cannot find LavaVK, specify the installation path:
 cmake -B build -DCMAKE_PREFIX_PATH=/path/to/install
 ```
 
+---
+
 ## [0.9.2-indev] — 2026-07-31
 
 > **Development status:** In development
@@ -104,6 +116,7 @@ cmake -B build -DCMAKE_PREFIX_PATH=/path/to/install
 ### Fixed
 * Removed `shaderc` dependency, reducing repo size.
 
+---
 
 ## [0.9.1-indev] — 2026-07-31
 
@@ -149,9 +162,3 @@ cmake -B build -DCMAKE_PREFIX_PATH=/path/to/install
 * Ray tracing.
 * Mesh shaders.
 * Potential higher-level engine functionality.
-
-### Notes
-
-`0.9.0-indev` is a development release. The public API may change before the `1.0.0` release.
-
-The `1.0.0` release will mark the first stable LavaVK API.

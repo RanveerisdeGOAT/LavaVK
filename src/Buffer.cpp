@@ -1,9 +1,28 @@
 #include "LavaVK/Buffer.hpp"
 
+#include "LavaVK/Command.hpp"
 #include "LavaVK/Pipeline.hpp"
+#include "LavaVK/Queue.hpp"
 #include "LavaVK/Texture.hpp"
 
 namespace LavaVK {
+
+    namespace {
+        VkMemoryPropertyFlags getMemoryFlags(LavaVK::MemoryUsage usage) {
+            switch (usage) {
+                case LavaVK::MemoryUsage::GPU:
+                    return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+                case LavaVK::MemoryUsage::CPU:
+                case LavaVK::MemoryUsage::CPU_TO_GPU:
+                    return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+                case LavaVK::MemoryUsage::GPU_TO_CPU:
+                    return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+            }
+            return 0;
+        }
+    }
 
     Framebuffer::Framebuffer(
         Device &device,
@@ -46,19 +65,21 @@ namespace LavaVK {
         vkDestroyFramebuffer(m_device.native(), native(), nullptr);
     }
 
-    uint32_t Buffer::findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter,
-                                    VkMemoryPropertyFlags properties) {
+    uint32_t Buffer::findMemoryType(VkPhysicalDevice physical, uint32_t typeFilter, VkFlags requiredProperties) {
         VkPhysicalDeviceMemoryProperties memProperties;
-        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+        vkGetPhysicalDeviceMemoryProperties(physical, &memProperties);
 
         for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-            if ((typeFilter & (1 << i)) &&
-                (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            // Corrected parentheses around bitwise AND:
+            bool supportsType = (typeFilter & (1 << i)) != 0;
+            bool hasAllProperties = (memProperties.memoryTypes[i].propertyFlags & requiredProperties) == requiredProperties;
+
+            if (supportsType && hasAllProperties) {
                 return i;
             }
         }
 
-        LAVAVK_ERROR("LavaVK::Buffer - Failed to find suitable memory type!");
+        throw std::runtime_error("LavaVK::Buffer - Failed to find suitable memory type!");
     }
 
     Buffer::Buffer(Device &device, const BufferCreateInfo &info)
@@ -83,19 +104,7 @@ namespace LavaVK {
         vkGetBufferMemoryRequirements(m_device->native(), m_buffer, &memRequirements);
 
         // 3. Map MemoryUsage to VkMemoryPropertyFlags
-        VkMemoryPropertyFlags memoryProperties = 0;
-        switch (m_memoryUsage) {
-            case MemoryUsage::GPU:
-                memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-                break;
-            case MemoryUsage::CPU:
-            case MemoryUsage::CPU_TO_GPU:
-                memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-                break;
-            case MemoryUsage::GPU_TO_CPU:
-                memoryProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-                break;
-        }
+        VkMemoryPropertyFlags memoryProperties = getMemoryFlags(m_memoryUsage);
 
         // 4. Allocate Device Memory
         VkMemoryAllocateInfo allocInfo{};
@@ -148,9 +157,14 @@ namespace LavaVK {
     // Move Assignment
     Buffer &Buffer::operator=(Buffer &&other) noexcept {
         if (this != &other) {
-            // Clean up current resources
-            this->~Buffer();
+            // Properly release existing Vulkan resources
+            if (m_device) {
+                if (m_mapped) { unmap(); }
+                if (m_buffer != VK_NULL_HANDLE) { vkDestroyBuffer(m_device->native(), m_buffer, nullptr); }
+                if (m_memory != VK_NULL_HANDLE) { vkFreeMemory(m_device->native(), m_memory, nullptr); }
+            }
 
+            // Steal state from other
             m_device = other.m_device;
             m_buffer = other.m_buffer;
             m_memory = other.m_memory;
@@ -159,6 +173,7 @@ namespace LavaVK {
             m_usage = other.m_usage;
             m_memoryUsage = other.m_memoryUsage;
 
+            // Reset other
             other.m_device = nullptr;
             other.m_buffer = VK_NULL_HANDLE;
             other.m_memory = VK_NULL_HANDLE;
@@ -197,5 +212,46 @@ namespace LavaVK {
         if (!wasMapped) {
             unmap();
         }
+    }
+
+    void Buffer::copyToBuffer(Buffer &dstBuffer) const {
+        // 1. Allocate a temporary command buffer from the graphics/transfer pool
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = m_device->getCommandPool(LavaVK::QueueType::GRAPHICS).native();
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer cmd;
+        vkAllocateCommandBuffers(m_device->native(), &allocInfo, &cmd);
+
+        // 2. Begin recording single-time commands
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(cmd, &beginInfo);
+
+        // 3. Record the buffer copy region
+        VkBufferCopy copyRegion{};
+        copyRegion.srcOffset = 0;
+        copyRegion.dstOffset = 0;
+        copyRegion.size = m_size;
+
+        vkCmdCopyBuffer(cmd, native(), dstBuffer.native(), 1, &copyRegion);
+
+        vkEndCommandBuffer(cmd);
+
+        // 4. Submit to GPU queue and wait until complete
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmd;
+
+        VkQueue graphicsQueue = m_device->getQueue(LavaVK::QueueType::GRAPHICS).native();
+        vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(graphicsQueue); // Wait for transfer to complete
+
+        // 5. Free temporary command buffer
+        vkFreeCommandBuffers(m_device->native(), m_device->getCommandPool(LavaVK::QueueType::GRAPHICS).native(), 1, &cmd);
     }
 } // namespace LavaVK
