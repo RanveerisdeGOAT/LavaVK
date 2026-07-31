@@ -1,6 +1,16 @@
 # Changelog
 
 All notable changes to LavaVK are documented here.
+
+## [0.12.0-indev] — 2026-07-31
+
+> **Development status:** In development
+
+### Added
+* Added indirect command calls `drawIndirect()` and `drawIndexedIndirect()`
+
+---
+
 ## [0.11.0-indev] — 2026-07-31
 
 > **Development status:** In development

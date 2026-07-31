@@ -258,10 +258,10 @@ namespace LavaVK {
     }
 
     void CommandBuffer::bindDescriptorSets(
-            const PipelineLayout &layout,
-            PipelineBindPoint pipeline_bind_point,
-            const std::vector<VkDescriptorSet> &descriptor_sets,
-            uint32_t first_set) const {
+        const PipelineLayout &layout,
+        PipelineBindPoint pipeline_bind_point,
+        const std::vector<VkDescriptorSet> &descriptor_sets,
+        uint32_t first_set) const {
         vkCmdBindDescriptorSets(
             native(),
             static_cast<VkPipelineBindPoint>(pipeline_bind_point),
@@ -272,5 +272,23 @@ namespace LavaVK {
             0,
             nullptr
         );
+    }
+
+    void CommandBuffer::drawIndirect(
+        const Buffer &buffer,
+        BufferSize offset,
+        uint32_t drawCount,
+        uint32_t stride
+    ) const {
+        vkCmdDrawIndirect(m_buffer, buffer.native(), offset, drawCount, stride);
+    }
+
+    void CommandBuffer::drawIndexedIndirect(
+        const Buffer &buffer,
+        BufferSize offset,
+        uint32_t drawCount,
+        uint32_t stride
+    ) const {
+        vkCmdDrawIndexedIndirect(m_buffer, buffer.native(), offset, drawCount, stride);
     }
 } // namespace LavaVK

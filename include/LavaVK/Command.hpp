@@ -15,6 +15,22 @@ namespace LavaVK {
     class Buffer;
     class Framebuffer;
     class RenderPass;
+
+    struct IndexedIndirectCommand {
+        uint32_t    indexCount;
+        uint32_t    instanceCount;
+        uint32_t    firstIndex;
+        int32_t     vertexOffset;
+        uint32_t    firstInstance;
+    };
+
+    struct IndirectCommand {
+        uint32_t    vertexCount;
+        uint32_t    instanceCount;
+        uint32_t    firstVertex;
+        uint32_t    firstInstance;
+    };
+
     /**
      * @brief Wrapper around VkCommandBuffer for recording GPU rendering and compute instructions.
      *
@@ -181,6 +197,34 @@ namespace LavaVK {
          */
         void drawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t firstIndex = 0,
                          int32_t vertexOffset = 0, uint32_t firstInstance = 0) const;
+
+        /**
+         * @brief Records an indirect draw command.
+         * @param buffer Buffer containing VkDrawIndirectCommand structures.
+         * @param offset Byte offset into buffer where parameters begin.
+         * @param drawCount Number of draws to execute.
+         * @param stride Byte stride between successive sets of draw parameters.
+         */
+        void drawIndirect(
+            const Buffer &buffer,
+            VkDeviceSize offset = 0,
+            uint32_t drawCount = 1,
+            uint32_t stride = sizeof(VkDrawIndirectCommand)
+        ) const;
+
+        /**
+         * @brief Records an indexed indirect draw command.
+         * @param buffer Buffer containing VkDrawIndexedIndirectCommand structures.
+         * @param offset Byte offset into buffer where parameters begin.
+         * @param drawCount Number of draws to execute.
+         * @param stride Byte stride between successive sets of draw parameters.
+         */
+        void drawIndexedIndirect(
+            const Buffer &buffer,
+            VkDeviceSize offset = 0,
+            uint32_t drawCount = 1,
+            uint32_t stride = sizeof(VkDrawIndexedIndirectCommand)
+        ) const;
 
         /**
          * @brief Pushes constants to a pipeline layout.

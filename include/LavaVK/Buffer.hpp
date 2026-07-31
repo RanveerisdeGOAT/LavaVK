@@ -16,6 +16,8 @@ namespace LavaVK {
     class Image;
     class RenderPass;
 
+    using BufferSize = VkDeviceSize;
+
     /**
      * @brief Represents a Vulkan framebuffer.
      *
@@ -100,6 +102,7 @@ namespace LavaVK {
 
         TransferSrc = VK_BUFFER_USAGE_TRANSFER_SRC_BIT, /**< Usable as the source of a transfer (copy) command. */
         TransferDst = VK_BUFFER_USAGE_TRANSFER_DST_BIT, /**< Usable as the destination of a transfer (copy) command. */
+        Indirect    = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT /**< Usable for indirect draw calls. */
     };
 
     /**
