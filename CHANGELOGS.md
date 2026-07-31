@@ -2,6 +2,14 @@
 
 All notable changes to LavaVK are documented here.
 
+## [0.10.1-indev] — 2026-07-31
+
+> **Development status:** In development
+
+### Fixed
+* Fixed binding problem in `VertexLayout`.
+* Removed Release vs Debug error handler in `Error.hpp`.
+
 ## [0.10.0-indev] — 2026-07-31
 
 > **Development status:** In development

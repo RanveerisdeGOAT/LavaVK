@@ -121,7 +121,8 @@ namespace LavaVK {
         GPU, /**< Device-local memory only; fastest for the GPU but not directly writable from the CPU. */
         CPU, /**< Host-visible memory only; readable/writable from the CPU. */
         CPU_TO_GPU, /**< Host-visible memory intended for CPU writes the GPU will read (e.g. staging/upload buffers). */
-        GPU_TO_CPU /**< Host-visible, cached memory intended for CPU reads of GPU-written data (e.g. readback buffers). */
+        GPU_TO_CPU
+        /**< Host-visible, cached memory intended for CPU reads of GPU-written data (e.g. readback buffers). */
     };
 
     /**
@@ -348,6 +349,11 @@ namespace LavaVK {
         }
     };
 
+    enum class VertexInputRate {
+        Vertex = VK_VERTEX_INPUT_RATE_VERTEX,
+        Instance = VK_VERTEX_INPUT_RATE_INSTANCE,
+    };
+
     /**
      * @brief Builder describing a vertex buffer's binding and per-attribute layout for a pipeline.
      *
@@ -376,48 +382,61 @@ namespace LavaVK {
     class VertexLayout {
     public:
         /**
-         * @brief Creates a vertex layout bound to a given binding slot, with stride derived from `Vertex`.
-         * @tparam Vertex The vertex struct type this layout describes; its
-         * size (via `sizeof(Vertex)`) becomes the binding's stride.
-         * @param binding Vertex input binding slot this layout describes.
-         * @param inputRate Whether vertex data advances per-vertex or per-instance.
-         * @return A new #VertexLayout with its binding description populated;
-         * call #attribute() on the result to add per-member attributes.
+         * @brief Creates a vertex layout with an initial binding.
          */
         template<typename Vertex>
-        static VertexLayout create(uint32_t binding = 0, VkVertexInputRate inputRate = VK_VERTEX_INPUT_RATE_VERTEX) {
+        static VertexLayout create(
+            uint32_t binding = 0,
+            VertexInputRate inputRate = VertexInputRate::Vertex
+        ) {
             VertexLayout layout;
-            layout.m_stride = sizeof(Vertex);
-            layout.m_bindingIndex = binding;
 
-            VkVertexInputBindingDescription bindingDescription{};
-            bindingDescription.binding = binding;
-            bindingDescription.stride = static_cast<uint32_t>(sizeof(Vertex));
-            bindingDescription.inputRate = inputRate;
-
-            layout.m_bindings.push_back(bindingDescription);
+            layout.addBinding<Vertex>(binding, inputRate);
 
             return layout;
         }
 
+
         /**
-         * @brief Adds a vertex attribute derived from a struct member pointer.
-         * @details The attribute's byte offset within the vertex struct is
-         * computed automatically via #MemberTraits from `MemberPtr`, so
-         * callers do not need to specify it manually.
-         * @tparam MemberPtr Pointer-to-member of the vertex struct this
-         * attribute reads from (e.g. `&Vertex::position`).
-         * @param location Shader input location this attribute binds to.
-         * @param format Vulkan-compatible #Format describing the attribute's data layout.
-         * @return Reference to this `VertexLayout`, to allow chained `.attribute<...>(...)` calls.
+         * @brief Adds another vertex input binding.
+         *
+         * The newly added binding becomes the active binding for future attributes.
+         */
+        template<typename Vertex>
+        VertexLayout &addBinding(
+            uint32_t binding,
+            VertexInputRate inputRate = VertexInputRate::Vertex
+        ) {
+            VkVertexInputBindingDescription bindingDescription{};
+
+            bindingDescription.binding = binding;
+            bindingDescription.stride = sizeof(Vertex);
+            bindingDescription.inputRate =
+                    static_cast<VkVertexInputRate>(inputRate);
+
+            m_bindings.push_back(bindingDescription);
+
+            // Future attributes use this binding
+            m_currentBinding = binding;
+
+            return *this;
+        }
+
+
+        /**
+         * @brief Adds an attribute to the current binding.
          */
         template<auto MemberPtr>
-        VertexLayout &attribute(uint32_t location, Format format) {
+        VertexLayout &attribute(
+            uint32_t location,
+            Format format
+        ) {
             using Traits = MemberTraits<MemberPtr>;
 
             VkVertexInputAttributeDescription attr{};
+
             attr.location = location;
-            attr.binding = m_bindingIndex; // Uses the configured binding slot!
+            attr.binding = m_currentBinding;
             attr.format = static_cast<VkFormat>(format);
             attr.offset = static_cast<uint32_t>(Traits::offset());
 
@@ -426,47 +445,21 @@ namespace LavaVK {
             return *this;
         }
 
-        /**
-         * @brief Returns the vertex input binding slot this layout describes.
-         * @return The binding index passed to #create().
-         */
-        [[nodiscard]]
-        uint32_t bindingIndex() const {
-            return m_bindingIndex;
-        }
 
-        /**
-         * @brief Returns the byte stride between consecutive vertices.
-         * @return The stride, in bytes, derived from `sizeof(Vertex)` in #create().
-         */
-        [[nodiscard]]
-        uint32_t stride() const {
-            return m_stride;
-        }
-
-        /**
-         * @brief Returns the binding description(s) for this layout.
-         * @return Reference to the vector of `VkVertexInputBindingDescription`
-         * entries (populated with a single entry by #create()).
-         */
         [[nodiscard]]
         const std::vector<VkVertexInputBindingDescription> &bindings() const {
             return m_bindings;
         }
 
-        /**
-         * @brief Returns the attribute descriptions added to this layout.
-         * @return Reference to the vector of `VkVertexInputAttributeDescription`
-         * entries added via #attribute().
-         */
+
         [[nodiscard]]
         const std::vector<VkVertexInputAttributeDescription> &attributes() const {
             return m_attributes;
         }
 
     private:
-        uint32_t m_stride = 0;
-        uint32_t m_bindingIndex = 0;
+        // Binding currently receiving attributes
+        uint32_t m_currentBinding = 0;
 
         std::vector<VkVertexInputBindingDescription> m_bindings;
         std::vector<VkVertexInputAttributeDescription> m_attributes;

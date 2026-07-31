@@ -1,4 +1,4 @@
-# LavaVK 0.10.0-indev
+# LavaVK 0.10.1-indev
 
 > Currently in development.
 
@@ -9,6 +9,7 @@ LavaVK is a lightweight C++20 wrapper around Vulkan that removes boilerplate whi
 Unlike game engines or rendering frameworks, LavaVK does not impose an engine design. Vulkan concepts remain familiar, but are wrapped in modern RAII classes with sensible defaults, automatic resource management, and a cleaner C++ API.
 
 LavaVK aims to make Vulkan easier to use while keeping the power and flexibility of the original API. It provides clean C++ abstractions for Vulkan objects without forcing a rendering architecture, allowing users to build their own engines, renderers, tools, and applications.
+Breaking changes only in major versions after 1.0.0
 
 ## Why LavaVK?
 
@@ -43,10 +44,10 @@ There are no custom rendering abstractions or engine architecture imposed on use
 * [x] Automatic GLSL → SPIR-V compilation using Shaderc
 * [x] Direct SPIR-V binary loading
 * [x] Window-system-independent core API
+* [x] Instancing
 
 ### Planned Features
 
-* [ ] Instancing
 * [ ] Compute pipelines
 * [ ] Descriptor indexing
 * [ ] Dynamic rendering
