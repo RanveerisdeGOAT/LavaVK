@@ -400,6 +400,32 @@ namespace LavaVK {
         Compute = VK_PIPELINE_BIND_POINT_COMPUTE,
     };
 
+    struct ComputePipelineCreateInfo {
+        Shader *computeShader = nullptr;
+        PipelineLayout *layout = nullptr;
+    };
+
+    class ComputePipeline {
+    public:
+        ComputePipeline(Device &device, const ComputePipelineCreateInfo &info);
+        ~ComputePipeline();
+
+        ComputePipeline(const ComputePipeline&) = delete;
+        ComputePipeline& operator=(const ComputePipeline&) = delete;
+
+        ComputePipeline(ComputePipeline&& other) noexcept;
+        ComputePipeline& operator=(ComputePipeline&& other) noexcept;
+
+        void bind(VkCommandBuffer commandBuffer) const;
+
+        VkPipeline native() const {
+            return m_pipeline;
+        }
+    private:
+        Device &m_device;
+        VkPipeline m_pipeline = VK_NULL_HANDLE;
+    };
+
 
 } // namespace LavaVK
 

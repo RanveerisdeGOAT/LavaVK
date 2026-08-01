@@ -29,6 +29,10 @@ namespace LavaVK {
         vkCmdBindPipeline(m_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.native());
     }
 
+    void CommandBuffer::bindPipeline(const ComputePipeline &pipeline) const {
+        vkCmdBindPipeline(m_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.native());
+    }
+
     void CommandBuffer::bindVertexBuffer(VkBuffer buffer, VkDeviceSize offset) const {
         VkBuffer buffers[] = {buffer};
         VkDeviceSize offsets[] = {offset};
@@ -84,6 +88,16 @@ namespace LavaVK {
         end();
     }
 
+    void CommandBuffer::record(const std::function<void(CommandBuffer &)> &commands) {
+        reset();
+        begin();
+
+        // Execute commands provided by caller
+        commands(*this);
+
+        end();
+    }
+
     void CommandBuffer::endRenderPass() const {
         vkCmdEndRenderPass(m_buffer);
     }
@@ -96,6 +110,10 @@ namespace LavaVK {
     void CommandBuffer::drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex,
                                     int32_t vertexOffset, uint32_t firstInstance) const {
         vkCmdDrawIndexed(m_buffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    }
+
+    void CommandBuffer::dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) const {
+        vkCmdDispatch(m_buffer, groupCountX, groupCountY, groupCountZ);
     }
 
     void CommandBuffer::setViewport(VkExtent2D extent, float minDepth, float maxDepth) const {

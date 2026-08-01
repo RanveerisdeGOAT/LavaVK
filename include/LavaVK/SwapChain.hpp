@@ -13,6 +13,7 @@
 #include "Sync.hpp"
 #include "Device.hpp"
 #include "Surface.hpp"
+#include "Texture.hpp"
 
 namespace LavaVK {
     class RenderPass;

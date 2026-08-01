@@ -1,4 +1,4 @@
-# LavaVK 0.12.0-indev
+# LavaVK 0.13.0-indev
 
 > Currently in development.
 
@@ -45,10 +45,10 @@ There are no custom rendering abstractions or engine architecture imposed on use
 * [x] Direct SPIR-V binary loading
 * [x] Window-system-independent core API
 * [x] Instancing
+* [x] Compute pipelines
 
 ### Planned Features
 
-* [ ] Compute pipelines
 * [ ] Descriptor indexing
 * [ ] Dynamic rendering
 

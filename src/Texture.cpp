@@ -1,11 +1,11 @@
 #include "LavaVK/Texture.hpp"
 #include "LavaVK/Device.hpp"
+#include "LavaVK/Queue.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <stdexcept>
-
-#include "LavaVK/Queue.hpp"
+#include <utility>
 
 namespace LavaVK {
     namespace {
@@ -72,6 +72,10 @@ namespace LavaVK {
             LAVAVK_ERROR("[LavaVK ERROR] Failed to find suitable memory type for image allocation.");
         }
     }
+
+    // =========================================================================
+    // Image Implementation
+    // =========================================================================
 
     Image::Image(Device &device, const ImageCreateInfo &info)
         : m_device(&device),
@@ -214,10 +218,100 @@ namespace LavaVK {
         return *this;
     }
 
+    // =========================================================================
+    // Texture Implementation
+    // =========================================================================
+
+    // Constructor 1: Blank / Storage Target Constructor
+    // Constructor 1: Blank / Storage Target Constructor
+    Texture::Texture(Device &device, const TextureCreateInfo &info)
+        : m_device(device) {
+        VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+        if ((static_cast<VkImageUsageFlags>(info.usage) & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0) {
+            aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+        }
+
+        // 1. Allocate backing GPU Image
+        m_image = Image(
+            m_device,
+            ImageCreateInfo{
+                .type = ImageType::IMAGE_2D,
+                .extent = {info.width, info.height, 1},
+                .format = static_cast<VkFormat>(info.format),
+                .usage = info.usage,
+                .aspect = aspectFlags,
+                .memory = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+            }
+        );
+
+        // 2. Transition Layout: UNDEFINED -> GENERAL (required for Storage Images)
+        const uint32_t queueFamily = m_device.getQueueFamily(QueueType::GRAPHICS);
+
+        VkQueue queue = VK_NULL_HANDLE;
+        vkGetDeviceQueue(m_device.native(), queueFamily, 0, &queue);
+
+        VkCommandPool commandPool = VK_NULL_HANDLE;
+        VkCommandPoolCreateInfo poolInfo{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+        poolInfo.queueFamilyIndex = queueFamily;
+        if (vkCreateCommandPool(m_device.native(), &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create temporary command pool for layout transition.");
+        }
+
+        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+        VkCommandBufferAllocateInfo allocInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = commandPool;
+        allocInfo.commandBufferCount = 1;
+        vkAllocateCommandBuffers(m_device.native(), &allocInfo, &commandBuffer);
+
+        VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = m_image.image();
+        barrier.subresourceRange.aspectMask = aspectFlags;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier
+        );
+
+        vkEndCommandBuffer(commandBuffer);
+
+        VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(queue);
+
+        vkDestroyCommandPool(m_device.native(), commandPool, nullptr);
+
+        // 3. Create Sampler
+        createSampler(info.samplerInfo);
+    }
+
+    // Constructor 2: Load Image from Disk
     Texture::Texture(Device &device, const std::filesystem::path &path,
                      const TextureSamplerCreateInfo &customSamplerInfo)
         : m_device(device) {
-        // 1. Load pixel data using stb_image
         int width = 0;
         int height = 0;
         int channels = 0;
@@ -229,7 +323,6 @@ namespace LavaVK {
 
         const VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * height * 4;
 
-        // 2. Create staging buffer and upload CPU pixels
         Buffer stagingBuffer(
             m_device,
             BufferCreateInfo{
@@ -242,7 +335,6 @@ namespace LavaVK {
         stagingBuffer.upload(pixels, imageSize);
         stbi_image_free(pixels);
 
-        // 3. Create destination GPU Image
         VkExtent3D extent{
             static_cast<uint32_t>(width),
             static_cast<uint32_t>(height),
@@ -261,7 +353,6 @@ namespace LavaVK {
             }
         );
 
-        // 4. Record and submit commands to copy staging buffer to the GPU Image
         const uint32_t queueFamily = m_device.getQueueFamily(QueueType::GRAPHICS);
 
         VkQueue queue = VK_NULL_HANDLE;
@@ -289,7 +380,7 @@ namespace LavaVK {
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-        // Transition layout: UNDEFINED -> TRANSFER_DST_OPTIMAL
+        // Transition: UNDEFINED -> TRANSFER_DST_OPTIMAL
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -315,7 +406,6 @@ namespace LavaVK {
             1, &barrier
         );
 
-        // Copy Buffer -> Image
         VkBufferImageCopy region{};
         region.bufferOffset = 0;
         region.bufferRowLength = 0;
@@ -364,28 +454,31 @@ namespace LavaVK {
 
         vkDestroyCommandPool(m_device.native(), commandPool, nullptr);
 
-        // Create Vulkan Sampler
-        VkSamplerCreateInfo samplerInfo{};
-        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerInfo.magFilter = static_cast<VkFilter>(customSamplerInfo.magFilter);
-        samplerInfo.minFilter = static_cast<VkFilter>(customSamplerInfo.minFilter);
-        samplerInfo.addressModeU = static_cast<VkSamplerAddressMode>(customSamplerInfo.addressModeU);
-        samplerInfo.addressModeV = static_cast<VkSamplerAddressMode>(customSamplerInfo.addressModeV);
-        samplerInfo.addressModeW = static_cast<VkSamplerAddressMode>(customSamplerInfo.addressModeW);
+        createSampler(customSamplerInfo);
+    }
 
-        samplerInfo.anisotropyEnable = customSamplerInfo.enableAnisotropy ? VK_TRUE : VK_FALSE;
-        samplerInfo.maxAnisotropy = customSamplerInfo.maxAnisotropy;
+    void Texture::createSampler(const TextureSamplerCreateInfo &samplerInfo) {
+        VkSamplerCreateInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        info.magFilter = static_cast<VkFilter>(samplerInfo.magFilter);
+        info.minFilter = static_cast<VkFilter>(samplerInfo.minFilter);
+        info.addressModeU = static_cast<VkSamplerAddressMode>(samplerInfo.addressModeU);
+        info.addressModeV = static_cast<VkSamplerAddressMode>(samplerInfo.addressModeV);
+        info.addressModeW = static_cast<VkSamplerAddressMode>(samplerInfo.addressModeW);
 
-        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        samplerInfo.unnormalizedCoordinates = VK_FALSE;
-        samplerInfo.compareEnable = VK_FALSE;
-        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.mipLodBias = 0.0f;
-        samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = 0.0f;
+        info.anisotropyEnable = samplerInfo.enableAnisotropy ? VK_TRUE : VK_FALSE;
+        info.maxAnisotropy = samplerInfo.maxAnisotropy;
 
-        if (vkCreateSampler(m_device.native(), &samplerInfo, nullptr, &m_sampler) != VK_SUCCESS) {
+        info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        info.unnormalizedCoordinates = VK_FALSE;
+        info.compareEnable = VK_FALSE;
+        info.compareOp = VK_COMPARE_OP_ALWAYS;
+        info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        info.mipLodBias = 0.0f;
+        info.minLod = 0.0f;
+        info.maxLod = 0.0f;
+
+        if (vkCreateSampler(m_device.native(), &info, nullptr, &m_sampler) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create texture sampler!");
         }
     }
@@ -397,11 +490,22 @@ namespace LavaVK {
         }
     }
 
-    Image &Texture::image() const {
-        return const_cast<Image &>(m_image);
+    // Move Constructor
+    Texture::Texture(Texture &&other) noexcept
+        : m_device(other.m_device),
+          m_image(std::move(other.m_image)),
+          m_sampler(std::exchange(other.m_sampler, VK_NULL_HANDLE)) {
     }
 
-    VkSampler Texture::sampler() const {
-        return m_sampler;
+    // Move Assignment
+    Texture &Texture::operator=(Texture &&other) noexcept {
+        if (this != &other) {
+            if (m_sampler != VK_NULL_HANDLE) {
+                vkDestroySampler(m_device.native(), m_sampler, nullptr);
+            }
+            m_image = std::move(other.m_image);
+            m_sampler = std::exchange(other.m_sampler, VK_NULL_HANDLE);
+        }
+        return *this;
     }
 } // namespace LavaVK

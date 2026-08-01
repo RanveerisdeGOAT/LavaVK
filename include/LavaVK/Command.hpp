@@ -17,18 +17,18 @@ namespace LavaVK {
     class RenderPass;
 
     struct IndexedIndirectCommand {
-        uint32_t    indexCount;
-        uint32_t    instanceCount;
-        uint32_t    firstIndex;
-        int32_t     vertexOffset;
-        uint32_t    firstInstance;
+        uint32_t indexCount;
+        uint32_t instanceCount;
+        uint32_t firstIndex;
+        int32_t vertexOffset;
+        uint32_t firstInstance;
     };
 
     struct IndirectCommand {
-        uint32_t    vertexCount;
-        uint32_t    instanceCount;
-        uint32_t    firstVertex;
-        uint32_t    firstInstance;
+        uint32_t vertexCount;
+        uint32_t instanceCount;
+        uint32_t firstVertex;
+        uint32_t firstInstance;
     };
 
     /**
@@ -104,6 +104,15 @@ namespace LavaVK {
         void bindPipeline(const GraphicsPipeline &pipeline) const;
 
         /**
+         * @brief Binds a compute pipeline to the command buffer.
+         * @details Wraps `vkCmdBindPipeline` with `VK_PIPELINE_BIND_POINT_GRAPHICS`.
+         * Must be called between #begin()
+         * and #end() before recording any draw calls.
+         * @param pipeline The ComputePipeline instance containing shader stages and pipeline state.
+         */
+        void bindPipeline(const ComputePipeline &pipeline) const;
+
+        /**
          * @brief Binds a vertex buffer to the pipeline.
          * @param buffer Native handle to the Vulkan vertex buffer.
          * @param offset Byte offset into the buffer from which vertex reading starts.
@@ -170,6 +179,13 @@ namespace LavaVK {
             const std::function<void(CommandBuffer &)> &drawCommands);
 
         /**
+         * @brief Start recording commands to command buffer.
+         *
+         * @param commands Lambda callback containing draw calls and pipeline bindings.
+         */
+        void record(const std::function<void(CommandBuffer &)> &commands);
+
+        /**
          * @brief Ends the active render pass.
          * @details Wraps `vkCmdEndRenderPass`. Must be called after all draw
          * commands for the current render pass instance have been recorded,
@@ -225,6 +241,15 @@ namespace LavaVK {
             uint32_t drawCount = 1,
             uint32_t stride = sizeof(VkDrawIndexedIndirectCommand)
         ) const;
+
+        /**
+         *@brief Dispatch workers to compute shader.
+         *
+         * @param groupCountX X invokers,
+         * @param groupCountY Y invokers,
+         * @param groupCountZ Z INvokers
+         */
+        void dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) const;
 
         /**
          * @brief Pushes constants to a pipeline layout.
@@ -352,6 +377,101 @@ namespace LavaVK {
          * @param extent Extent applied to both viewport dimensions and scissor rectangle.
          */
         void setViewportAndScissor(VkExtent2D extent) const;
+
+        /**
+     * @brief Records an image layout transition and memory barrier using LavaVK enums.
+     */
+        void pipelineBarrier(
+            VkImage image,
+            ImageLayout oldLayout,
+            ImageLayout newLayout,
+            PipelineStage srcStage,
+            PipelineStage dstStage,
+            AccessFlagBits srcAccess,
+            AccessFlagBits dstAccess,
+            ImageAspectFlagBits aspectMask = ImageAspectFlagBits::COLOR_BIT
+        ) {
+            VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+            barrier.oldLayout = static_cast<VkImageLayout>(oldLayout);
+            barrier.newLayout = static_cast<VkImageLayout>(newLayout);
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = image;
+            barrier.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(aspectMask);
+            barrier.subresourceRange.baseMipLevel = 0;
+            barrier.subresourceRange.levelCount = 1;
+            barrier.subresourceRange.baseArrayLayer = 0;
+            barrier.subresourceRange.layerCount = 1;
+            barrier.srcAccessMask = static_cast<VkAccessFlags>(srcAccess);
+            barrier.dstAccessMask = static_cast<VkAccessFlags>(dstAccess);
+
+            vkCmdPipelineBarrier(
+                m_buffer,
+                static_cast<VkPipelineStageFlags>(srcStage),
+                static_cast<VkPipelineStageFlags>(dstStage),
+                0,
+                0, nullptr,
+                0, nullptr,
+                1, &barrier
+            );
+        }
+
+        /// Convenience overload accepting LavaVK::Image wrapper
+        void pipelineBarrier(
+            const Image &image,
+            ImageLayout oldLayout,
+            ImageLayout newLayout,
+            PipelineStage srcStage,
+            PipelineStage dstStage,
+            AccessFlagBits srcAccess,
+            AccessFlagBits dstAccess,
+            ImageAspectFlagBits aspectMask = ImageAspectFlagBits::COLOR_BIT
+        ) {
+            pipelineBarrier(image.image(), oldLayout, newLayout, srcStage, dstStage, srcAccess, dstAccess, aspectMask);
+        }
+
+        /**
+         * @brief Copies region between two GPU images.
+         */
+        void copyImage(
+            VkImage srcImage,
+            ImageLayout srcLayout,
+            VkImage dstImage,
+            ImageLayout dstLayout,
+            uint32_t width,
+            uint32_t height,
+            ImageAspectFlagBits aspectMask = ImageAspectFlagBits::COLOR_BIT
+        ) {
+            VkImageCopy copyRegion{};
+            copyRegion.srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(aspectMask);
+            copyRegion.srcSubresource.layerCount = 1;
+            copyRegion.dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(aspectMask);
+            copyRegion.dstSubresource.layerCount = 1;
+            copyRegion.extent = {width, height, 1};
+
+            vkCmdCopyImage(
+                m_buffer,
+                srcImage,
+                static_cast<VkImageLayout>(srcLayout),
+                dstImage,
+                static_cast<VkImageLayout>(dstLayout),
+                1,
+                &copyRegion
+            );
+        }
+
+        /// Convenience overload accepting LavaVK::Image wrappers
+        void copyImage(
+            const Image &srcImage,
+            ImageLayout srcLayout,
+            const Image &dstImage,
+            ImageLayout dstLayout,
+            uint32_t width,
+            uint32_t height,
+            ImageAspectFlagBits aspectMask = ImageAspectFlagBits::COLOR_BIT
+        ) {
+            copyImage(srcImage.image(), srcLayout, dstImage.image(), dstLayout, width, height, aspectMask);
+        }
 
     private:
         friend class CommandPool;

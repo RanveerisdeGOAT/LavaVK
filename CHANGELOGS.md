@@ -2,6 +2,15 @@
 
 All notable changes to LavaVK are documented here.
 
+## [0.13.0-indev] — 2026-08-01
+
+> **Development status:** In development
+
+### Added
+* Finally added compute shaders.
+
+---
+
 ## [0.12.0-indev] — 2026-07-31
 
 > **Development status:** In development

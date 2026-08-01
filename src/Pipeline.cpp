@@ -299,4 +299,60 @@ namespace LavaVK {
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             m_pipeline);
     }
+
+    ComputePipeline::ComputePipeline(Device &device, const ComputePipelineCreateInfo &info)
+    : m_device(device)
+    {
+        // 1. Configure the compute shader stage
+        VkPipelineShaderStageCreateInfo shaderStageInfo{};
+        shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        shaderStageInfo.module = info.computeShader->native();
+        shaderStageInfo.pName = "main"; // Entry point in shader
+
+        // 2. Configure pipeline creation info
+        VkComputePipelineCreateInfo pipelineInfo{};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        pipelineInfo.stage = shaderStageInfo;
+        pipelineInfo.layout = info.layout->native();
+        pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+        pipelineInfo.basePipelineIndex = -1;
+
+        // 3. Create the Vulkan pipeline
+        if (vkCreateComputePipelines(
+                m_device.native(),
+                VK_NULL_HANDLE,
+                1,
+                &pipelineInfo,
+                nullptr,
+                &m_pipeline) != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to create compute pipeline!");
+        }
+    }
+
+    ComputePipeline::ComputePipeline(ComputePipeline&& other) noexcept
+    : m_device(other.m_device),
+      m_pipeline(std::exchange(other.m_pipeline, VK_NULL_HANDLE))
+    {}
+
+    ComputePipeline& ComputePipeline::operator=(ComputePipeline&& other) noexcept {
+        if (this != &other) {
+            if (m_pipeline != VK_NULL_HANDLE) {
+                vkDestroyPipeline(m_device.native(), m_pipeline, nullptr);
+            }
+            m_pipeline = std::exchange(other.m_pipeline, VK_NULL_HANDLE);
+        }
+        return *this;
+    }
+
+    ComputePipeline::~ComputePipeline() {
+        if (m_pipeline != VK_NULL_HANDLE) {
+            vkDestroyPipeline(m_device.native(), m_pipeline, nullptr);
+        }
+    }
+
+    void ComputePipeline::bind(VkCommandBuffer commandBuffer) const {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline);
+    }
 } // namespace LavaVK
