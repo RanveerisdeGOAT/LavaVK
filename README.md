@@ -49,8 +49,6 @@ There are no custom rendering abstractions or engine architecture imposed on use
 * [x] Descriptor indexing
 * [x] Dynamic rendering
 
-### Planned Features
-
 
 ### Maybe in the Far Future ;)
 
