@@ -202,4 +202,95 @@ namespace LavaVK {
             nullptr
         );
     }
+
+    BindlessTextureSet::BindlessTextureSet(Device &device)
+        : m_device(device),
+          m_layout(
+              device,
+              std::unordered_map<uint32_t, DescriptorSetLayoutBinding>{
+                  {
+                      BINDING,
+                      DescriptorSetLayoutBinding{
+                          BINDING,
+                          DescriptorType::CombinedImageSampler,
+                          MAX_TEXTURES,
+                          ShaderStageFlags::STAGE_ALL_GRAPHICS
+                      }
+                  }
+              }
+          ) {
+        m_textures.assign(MAX_TEXTURES, nullptr);
+
+        // Populate the free list so the most-recently-freed slot is reused first.
+        m_freeIndices.reserve(MAX_TEXTURES);
+        for (uint32_t i = MAX_TEXTURES; i-- > 0;) {
+            m_freeIndices.push_back(i);
+        }
+
+        m_pool = DescriptorPool::Builder(device)
+                .addPoolSize(DescriptorType::CombinedImageSampler, MAX_TEXTURES)
+                .setMaxSets(1)
+                .build();
+
+        m_set = m_pool->allocateDescriptorSet(m_layout);
+    }
+
+    uint32_t BindlessTextureSet::add(Texture &texture) {
+        if (m_freeIndices.empty()) {
+            throw std::runtime_error(
+                "BindlessTextureSet::add: capacity exceeded (" +
+                std::to_string(MAX_TEXTURES) + " textures)");
+        }
+
+        const uint32_t id = m_freeIndices.back();
+        m_freeIndices.pop_back();
+
+        m_textures[id] = &texture;
+        writeDescriptor(id, texture);
+
+        return id;
+    }
+
+    void BindlessTextureSet::remove(uint32_t id) {
+        if (id >= m_textures.size() || m_textures[id] == nullptr) {
+            throw std::out_of_range(
+                "BindlessTextureSet::remove: id " + std::to_string(id) +
+                " is out of range or not currently registered");
+        }
+
+        m_textures[id] = nullptr;
+        m_freeIndices.push_back(id);
+    }
+
+    Texture *BindlessTextureSet::get(uint32_t id) const {
+        if (id >= m_textures.size()) {
+            return nullptr;
+        }
+
+        return m_textures[id];
+    }
+
+    void BindlessTextureSet::update(uint32_t id) {
+        if (id >= m_textures.size() || m_textures[id] == nullptr) {
+            throw std::out_of_range(
+                "BindlessTextureSet::update: id " + std::to_string(id) +
+                " is out of range or not currently registered");
+        }
+
+        writeDescriptor(id, *m_textures[id]);
+    }
+
+    void BindlessTextureSet::writeDescriptor(uint32_t id, Texture &texture) const {
+        const DescriptorImage imageInfo(texture);
+
+        VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        write.dstSet = m_set;
+        write.dstBinding = BINDING;
+        write.dstArrayElement = id;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.pImageInfo = &imageInfo.native();
+
+        vkUpdateDescriptorSets(m_device.native(), 1, &write, 0, nullptr);
+    }
 }

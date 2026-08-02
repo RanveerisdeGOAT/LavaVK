@@ -395,29 +395,91 @@ namespace LavaVK {
         );
     }
 
+    /**
+     * @brief Selects which pipeline type a bind point operation (e.g. descriptor
+     * set binding) applies to, mirroring `VkPipelineBindPoint`.
+     */
     enum class PipelineBindPoint{
-        Graphics = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        Compute = VK_PIPELINE_BIND_POINT_COMPUTE,
+        Graphics = VK_PIPELINE_BIND_POINT_GRAPHICS, /**< Binds to the graphics pipeline bind point. */
+        Compute = VK_PIPELINE_BIND_POINT_COMPUTE, /**< Binds to the compute pipeline bind point. */
     };
 
+    /**
+     * @brief Configuration structure for creating a `ComputePipeline`.
+     */
     struct ComputePipelineCreateInfo {
-        Shader *computeShader = nullptr;
-        PipelineLayout *layout = nullptr;
+        Shader *computeShader = nullptr; /**< Required compute shader stage. */
+        PipelineLayout *layout = nullptr; /**< Required pipeline layout configuration. */
     };
 
+    /**
+     * @brief Abstraction around Vulkan's compute pipeline (`VkPipeline`).
+     *
+     * @details
+     * Wraps the smaller subset of state needed to create a compute
+     * pipeline (a single compute shader stage plus a `PipelineLayout`),
+     * as opposed to the many rasterization/blend/depth states required by
+     * `GraphicsPipeline`. `ComputePipeline` is move-only RAII: the
+     * underlying `VkPipeline` is created in the constructor and destroyed
+     * in the destructor.
+     *
+     * Example:
+     * @code
+     * LavaVK::ComputePipeline pipeline(device, {
+     *     .computeShader = &computeShader,
+     *     .layout = &pipelineLayout,
+     * });
+     *
+     * cmd.bindPipeline(pipeline);
+     * cmd.dispatch(groupCountX, groupCountY, groupCountZ);
+     * @endcode
+     */
     class ComputePipeline {
     public:
+        /**
+         * @brief Constructs and compiles a native Vulkan compute pipeline.
+         * @param device Reference to the LavaVK logical device.
+         * @param info Pipeline configuration descriptor (compute shader and layout).
+         * @throws std::runtime_error If required parameters are missing or Vulkan pipeline compilation fails.
+         */
         ComputePipeline(Device &device, const ComputePipelineCreateInfo &info);
+
+        /**
+         * @brief Destroys the underlying `VkPipeline`.
+         * @details A moved-from `ComputePipeline` is a no-op.
+         */
         ~ComputePipeline();
 
+        // Non-copyable
         ComputePipeline(const ComputePipeline&) = delete;
         ComputePipeline& operator=(const ComputePipeline&) = delete;
 
+        // Moveable
+        /**
+         * @brief Move constructor. Transfers ownership of the underlying `VkPipeline`.
+         * @param other The pipeline being moved from; left in an empty, destructible state.
+         */
         ComputePipeline(ComputePipeline&& other) noexcept;
+
+        /**
+         * @brief Move assignment operator. Destroys any currently owned pipeline
+         * and transfers ownership of @p other's `VkPipeline`.
+         * @param other The pipeline being moved from; left in an empty, destructible state.
+         * @return Reference to this pipeline.
+         */
         ComputePipeline& operator=(ComputePipeline&& other) noexcept;
 
+        /**
+         * @brief Binds this compute pipeline to a command buffer (`vkCmdBindPipeline`).
+         * @param commandBuffer Active Vulkan command buffer handle.
+         */
         void bind(VkCommandBuffer commandBuffer) const;
 
+        /**
+         * @brief Gets the native Vulkan `VkPipeline` handle.
+         * @return Native VkPipeline handle.
+         */
+        [[nodiscard]]
         VkPipeline native() const {
             return m_pipeline;
         }

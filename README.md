@@ -1,4 +1,4 @@
-# LavaVK 0.13.0-indev
+# LavaVK 0.14.0-indev
 
 > Currently in development.
 
@@ -46,10 +46,10 @@ There are no custom rendering abstractions or engine architecture imposed on use
 * [x] Window-system-independent core API
 * [x] Instancing
 * [x] Compute pipelines
+* [x] Descriptor indexing
 
 ### Planned Features
 
-* [ ] Descriptor indexing
 * [ ] Dynamic rendering
 
 ### Maybe in the Far Future ;)

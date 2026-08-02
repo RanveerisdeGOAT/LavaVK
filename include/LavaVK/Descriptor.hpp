@@ -5,8 +5,11 @@
 
 #include "Shader.hpp"
 #include "Texture.hpp"
+// #include "Texture.hpp"
 
 namespace LavaVK {
+    class Texture;
+    class Buffer;
     class Image;
 }
 
@@ -269,6 +272,162 @@ namespace LavaVK {
     private:
         Device &m_device;
         VkDescriptorPool m_pool{VK_NULL_HANDLE};
+    };
+
+    /**
+     * @brief Manages a single large descriptor set of textures indexed by integer
+     * ID for "bindless" shader access.
+     *
+     * @details
+     * Rather than binding one descriptor set per draw call, `BindlessTextureSet`
+     * allocates one `VkDescriptorSet` with a single binding containing a large
+     * array of `VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER` descriptors
+     * (#MAX_TEXTURES entries at binding #BINDING). Textures are registered via
+     * #add(), which writes them into a free array slot and returns the slot's
+     * index; that index can then be uploaded to the GPU (e.g. via push
+     * constants or a per-instance/material buffer) and used in the shader to
+     * index directly into the sampler array, avoiding descriptor set
+     * (re)binding for every different texture.
+     *
+     * @note This relies on the physical device supporting descriptor indexing
+     * (`GPUFeatures::descriptorIndexing`, in particular the `partiallyBound`
+     * and `runtimeDescriptorArray` features) so that only some of the
+     * #MAX_TEXTURES array slots need to be written at any given time; the
+     * corresponding device features must be enabled when the #Device is
+     * created. Descriptor writes performed by #add(), #remove(), and
+     * #update() are not synchronized with in-flight GPU work: only call them
+     * when the frame(s) that might reference the affected slot are known to
+     * have finished executing, or when the device additionally supports
+     * `updateAfterBind`. This class is neither copyable nor movable.
+     *
+     * Shader-side (GLSL), the corresponding binding looks like:
+     * @code
+     * layout(set = 0, binding = 0) uniform sampler2D bindlessTextures[];
+     *
+     * layout(push_constant) uniform PushConstants {
+     *     uint textureId;
+     * } pc;
+     *
+     * void main() {
+     *     vec4 color = texture(bindlessTextures[nonuniformEXT(pc.textureId)], uv);
+     * }
+     * @endcode
+     *
+     * Example, registering textures and issuing a draw:
+     * @code
+     * LavaVK::BindlessTextureSet bindlessTextures(device);
+     *
+     * uint32_t brickId = bindlessTextures.add(brickTexture);
+     * uint32_t stoneId = bindlessTextures.add(stoneTexture);
+     *
+     * cmd.bindDescriptorSets(pipelineLayout, LavaVK::PipelineBindPoint::Graphics,
+     *                        { bindlessTextures.descriptorSet() });
+     *
+     * cmd.pushConstants(pipelineLayout, LavaVK::ShaderStageFlags::STAGE_FRAGMENT_BIT, brickId);
+     * cmd.drawIndexed(indexCount);
+     * @endcode
+     */
+    class BindlessTextureSet {
+    public:
+        /**
+         * @brief Maximum number of textures that can be registered at once.
+         * @details Determines the `descriptorCount` of the underlying array
+         * binding; also the exclusive upper bound of the IDs returned by #add().
+         */
+        static constexpr uint32_t MAX_TEXTURES = 4096;
+
+        /** @brief Descriptor set layout binding index of the bindless texture array. */
+        static constexpr uint32_t BINDING = 0;
+
+        /**
+         * @brief Creates the descriptor set layout, backing pool, and descriptor
+         * set used to hold up to #MAX_TEXTURES bindless textures.
+         * @param device Logical device used to create the layout, pool, and set.
+         * @throw std::runtime_error If layout, pool, or descriptor set creation fails.
+         */
+        explicit BindlessTextureSet(Device &device);
+
+        /**
+         * @brief Destroys the owned descriptor pool (and, with it, the descriptor
+         * set allocated from it) and the descriptor set layout.
+         */
+        ~BindlessTextureSet() = default;
+
+        /// @name Deleted Copy/Move Operations
+        /// @{
+        BindlessTextureSet(const BindlessTextureSet &) = delete;
+        BindlessTextureSet &operator=(const BindlessTextureSet &) = delete;
+        BindlessTextureSet(BindlessTextureSet &&) = delete;
+        BindlessTextureSet &operator=(BindlessTextureSet &&) = delete;
+        /// @}
+
+        /**
+         * @brief Registers a texture in the next free array slot.
+         * @details Writes a `VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER` descriptor
+         * for @p texture into the returned slot at #BINDING. @p texture must
+         * outlive its registration in this set (until #remove() is called or
+         * this `BindlessTextureSet` is destroyed); no ownership is taken.
+         * @param texture The texture to register. Must remain valid and unmoved
+         * for as long as its slot is registered.
+         * @return The array index (ID) @p texture was written to; pass this to
+         * shaders to index the bindless array.
+         * @throw std::runtime_error If #MAX_TEXTURES textures are already registered.
+         */
+        uint32_t add(Texture &texture);
+
+        /**
+         * @brief Frees a previously registered texture's slot for reuse.
+         * @details Does not rewrite the underlying descriptor; the caller is
+         * responsible for ensuring shaders no longer index @p id after removal
+         * (e.g. by no longer issuing draws that reference it) since the
+         * descriptor slot may point at a texture that has since been destroyed.
+         * @param id A previously-returned ID from #add() that has not already been removed.
+         * @throw std::out_of_range If @p id is out of range or not currently registered.
+         */
+        void remove(uint32_t id);
+
+        /**
+         * @brief Looks up the texture currently registered at a given slot.
+         * @param id Array index (ID) to query.
+         * @return Pointer to the registered #Texture, or `nullptr` if @p id is
+         * out of range or has no texture currently registered.
+         */
+        Texture *get(uint32_t id) const;
+
+        /**
+         * @brief Rewrites the descriptor at a slot from its currently registered texture.
+         * @details Useful when a #Texture's underlying image or sampler has been
+         * recreated (e.g. after a resize) and the existing descriptor write at
+         * @p id needs to be refreshed to point at the new resources.
+         * @param id A previously-returned ID from #add() that has not since been removed.
+         * @throw std::out_of_range If @p id is out of range or not currently registered.
+         */
+        void update(uint32_t id);
+
+        /**
+         * @brief Returns the underlying bindless descriptor set.
+         * @return The `DescriptorSet` containing the bindless texture array at #BINDING.
+         */
+        [[nodiscard]] const DescriptorSet &descriptorSet() const { return m_set; }
+
+        [[nodiscard]] const DescriptorSetLayout &layout() const { return m_layout; }
+
+    private:
+        /**
+         * @brief Writes (or rewrites) the descriptor for a single array slot.
+         * @param id Array index to write.
+         * @param texture Texture whose image view/sampler are written into the slot.
+         */
+        void writeDescriptor(uint32_t id, Texture &texture) const;
+
+        Device &m_device;
+
+        DescriptorSetLayout m_layout;
+        std::unique_ptr<DescriptorPool> m_pool;
+        DescriptorSet m_set{};
+
+        std::vector<Texture *> m_textures;
+        std::vector<uint32_t> m_freeIndices;
     };
 }
 

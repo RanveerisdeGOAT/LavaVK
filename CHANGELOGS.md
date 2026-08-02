@@ -2,6 +2,16 @@
 
 All notable changes to LavaVK are documented here.
 
+## [0.14.0-indev] — 2026-08-02
+
+> **Development status:** In development
+
+### Added
+* Added descriptor indexing.
+* Added bindless textures.
+
+---
+
 ## [0.13.0-indev] — 2026-08-01
 
 > **Development status:** In development

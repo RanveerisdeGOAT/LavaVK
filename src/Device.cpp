@@ -9,6 +9,9 @@
 #include "LavaVK/Surface.hpp"
 #include "LavaVK/Error.hpp"
 
+#include <algorithm>
+#include <cstring>
+
 namespace LavaVK {
     namespace {
         GPUType convertType(VkPhysicalDeviceType type) {
@@ -72,8 +75,39 @@ namespace LavaVK {
         std::vector<GPUHardware> result;
         result.reserve(count);
 
-        for (auto device: physicalDevices)
+        for (auto device: physicalDevices) {
+            VkPhysicalDeviceDescriptorIndexingFeatures indexing{};
+            indexing.sType =
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+            VkPhysicalDeviceFeatures2 features{};
+            features.sType =
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+            features.pNext = &indexing;
+
+            vkGetPhysicalDeviceFeatures2(device, &features);
             result.emplace_back(device);
+            auto &f = result.back().m_features;
+
+            f.descriptorIndexing =
+                indexing.shaderSampledImageArrayNonUniformIndexing &&
+                indexing.runtimeDescriptorArray;
+
+            f.nonUniformIndexing =
+                indexing.shaderSampledImageArrayNonUniformIndexing;
+
+            f.runtimeDescriptorArray =
+                indexing.runtimeDescriptorArray;
+
+            f.partiallyBound =
+                indexing.descriptorBindingPartiallyBound;
+
+            f.variableDescriptorCount =
+                indexing.descriptorBindingVariableDescriptorCount;
+
+            f.updateAfterBind =
+                indexing.descriptorBindingSampledImageUpdateAfterBind;
+        }
 
         return result;
     }
@@ -259,6 +293,49 @@ namespace LavaVK {
         std::vector<const char *> extensions;
         if (surface != nullptr) {
             extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        }
+
+        // Query which device extensions are actually available so we don't
+        // request one a driver doesn't (separately) advertise, e.g. on
+        // implementations where VK_EXT_descriptor_indexing has been folded
+        // into core Vulkan 1.2 and isn't listed on its own.
+        uint32_t availableExtensionCount = 0;
+        vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &availableExtensionCount, nullptr);
+
+        std::vector<VkExtensionProperties> availableExtensions(availableExtensionCount);
+        vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &availableExtensionCount,
+                                             availableExtensions.data());
+
+        const auto isExtensionAvailable = [&](const char *name) {
+            return std::any_of(availableExtensions.begin(), availableExtensions.end(),
+                               [&](const VkExtensionProperties &ext) {
+                                   return std::strcmp(ext.extensionName, name) == 0;
+                               });
+        };
+
+        const GPUFeatures &gpuFeatures = gpu_hardware.features();
+
+        // Only enable descriptor indexing (and only the specific sub-features)
+        // the physical device actually reported support for; this is what
+        // BindlessTextureSet's large partially-bound sampler array relies on
+        // (in particular shaderSampledImageArrayNonUniformIndexing, required
+        // for `nonuniformEXT` indexing in shaders).
+        VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
+        descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+        descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing =
+                gpuFeatures.nonUniformIndexing ? VK_TRUE : VK_FALSE;
+        descriptorIndexingFeatures.runtimeDescriptorArray =
+                gpuFeatures.runtimeDescriptorArray ? VK_TRUE : VK_FALSE;
+        descriptorIndexingFeatures.descriptorBindingPartiallyBound =
+                gpuFeatures.partiallyBound ? VK_TRUE : VK_FALSE;
+        descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount =
+                gpuFeatures.variableDescriptorCount ? VK_TRUE : VK_FALSE;
+        descriptorIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind =
+                gpuFeatures.updateAfterBind ? VK_TRUE : VK_FALSE;
+
+        if (gpuFeatures.descriptorIndexing && isExtensionAvailable(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)) {
+            extensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+            createInfo.pNext = &descriptorIndexingFeatures;
         }
 
         createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());

@@ -16,19 +16,29 @@ namespace LavaVK {
     class Framebuffer;
     class RenderPass;
 
+    /**
+     * @brief Parameters for a single indexed indirect draw call, mirroring `VkDrawIndexedIndirectCommand`.
+     * @details An array of these is stored in a #Buffer and read by the GPU
+     * when recording #CommandBuffer::drawIndexedIndirect().
+     */
     struct IndexedIndirectCommand {
-        uint32_t indexCount;
-        uint32_t instanceCount;
-        uint32_t firstIndex;
-        int32_t vertexOffset;
-        uint32_t firstInstance;
+        uint32_t indexCount; /**< Number of indices to draw. */
+        uint32_t instanceCount; /**< Number of instances to draw. */
+        uint32_t firstIndex; /**< First index within the bound index buffer. */
+        int32_t vertexOffset; /**< Value added to vertex indices before indexing into the vertex buffer. */
+        uint32_t firstInstance; /**< Instance ID of the first instance. */
     };
 
+    /**
+     * @brief Parameters for a single (non-indexed) indirect draw call, mirroring `VkDrawIndirectCommand`.
+     * @details An array of these is stored in a #Buffer and read by the GPU
+     * when recording #CommandBuffer::drawIndirect().
+     */
     struct IndirectCommand {
-        uint32_t vertexCount;
-        uint32_t instanceCount;
-        uint32_t firstVertex;
-        uint32_t firstInstance;
+        uint32_t vertexCount; /**< Number of vertices to draw. */
+        uint32_t instanceCount; /**< Number of instances to draw. */
+        uint32_t firstVertex; /**< Index of the first vertex to draw. */
+        uint32_t firstInstance; /**< Instance ID of the first instance. */
     };
 
     /**
@@ -379,8 +389,21 @@ namespace LavaVK {
         void setViewportAndScissor(VkExtent2D extent) const;
 
         /**
-     * @brief Records an image layout transition and memory barrier using LavaVK enums.
-     */
+         * @brief Records an image layout transition and memory barrier using LavaVK enums.
+         * @details Wraps `vkCmdPipelineBarrier` for the common case of a single
+         * image memory barrier, transitioning @p image from @p oldLayout to
+         * @p newLayout between the given pipeline stages/access masks. Queue
+         * family ownership is left unchanged (`VK_QUEUE_FAMILY_IGNORED`), and
+         * the barrier covers mip level 0 and array layer 0 only.
+         * @param image Native handle of the Vulkan image being transitioned.
+         * @param oldLayout Layout the image is transitioning from.
+         * @param newLayout Layout the image is transitioning to.
+         * @param srcStage Pipeline stage(s) that must complete before the barrier.
+         * @param dstStage Pipeline stage(s) that must wait on the barrier.
+         * @param srcAccess Access types performed by @p srcStage that must be made visible.
+         * @param dstAccess Access types performed by @p dstStage that must wait for those writes.
+         * @param aspectMask Aspect(s) of the image affected by the transition (default: color).
+         */
         void pipelineBarrier(
             VkImage image,
             ImageLayout oldLayout,
@@ -416,7 +439,19 @@ namespace LavaVK {
             );
         }
 
-        /// Convenience overload accepting LavaVK::Image wrapper
+        /**
+         * @brief Convenience overload accepting a LavaVK #Image wrapper.
+         * @details Equivalent to the `VkImage` overload above, using @p image's
+         * native handle. See that overload for parameter details.
+         * @param image The LavaVK #Image being transitioned.
+         * @param oldLayout Layout the image is transitioning from.
+         * @param newLayout Layout the image is transitioning to.
+         * @param srcStage Pipeline stage(s) that must complete before the barrier.
+         * @param dstStage Pipeline stage(s) that must wait on the barrier.
+         * @param srcAccess Access types performed by @p srcStage that must be made visible.
+         * @param dstAccess Access types performed by @p dstStage that must wait for those writes.
+         * @param aspectMask Aspect(s) of the image affected by the transition (default: color).
+         */
         void pipelineBarrier(
             const Image &image,
             ImageLayout oldLayout,
@@ -431,7 +466,19 @@ namespace LavaVK {
         }
 
         /**
-         * @brief Copies region between two GPU images.
+         * @brief Copies a rectangular region between two GPU images (`vkCmdCopyImage`).
+         * @details Both images must already be in a layout compatible with
+         * transfer operations (typically #ImageLayout::TRANSFER_SRC_OPTIMAL
+         * and #ImageLayout::TRANSFER_DST_OPTIMAL respectively; see
+         * #pipelineBarrier()). Copies a single mip level/array layer, starting
+         * at the origin of both images, covering @p width x @p height texels.
+         * @param srcImage Native handle of the source Vulkan image.
+         * @param srcLayout Current layout of @p srcImage.
+         * @param dstImage Native handle of the destination Vulkan image.
+         * @param dstLayout Current layout of @p dstImage.
+         * @param width Width, in texels, of the region to copy.
+         * @param height Height, in texels, of the region to copy.
+         * @param aspectMask Aspect(s) of the images to copy (default: color).
          */
         void copyImage(
             VkImage srcImage,
@@ -460,7 +507,18 @@ namespace LavaVK {
             );
         }
 
-        /// Convenience overload accepting LavaVK::Image wrappers
+        /**
+         * @brief Convenience overload accepting LavaVK #Image wrappers.
+         * @details Equivalent to the `VkImage` overload above, using each
+         * image's native handle. See that overload for parameter details.
+         * @param srcImage The source LavaVK #Image.
+         * @param srcLayout Current layout of @p srcImage.
+         * @param dstImage The destination LavaVK #Image.
+         * @param dstLayout Current layout of @p dstImage.
+         * @param width Width, in texels, of the region to copy.
+         * @param height Height, in texels, of the region to copy.
+         * @param aspectMask Aspect(s) of the images to copy (default: color).
+         */
         void copyImage(
             const Image &srcImage,
             ImageLayout srcLayout,

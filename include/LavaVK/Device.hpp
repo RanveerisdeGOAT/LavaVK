@@ -41,6 +41,18 @@ namespace LavaVK {
     };
 
     /**
+     * @brief Contains available features of the GPU.
+     */
+    struct GPUFeatures {
+        bool descriptorIndexing = false;
+        bool runtimeDescriptorArray = false;
+        bool partiallyBound = false;
+        bool variableDescriptorCount = false;
+        bool nonUniformIndexing = false;
+        bool updateAfterBind = false;
+    };
+
+    /**
      * @brief Lightweight, queryable handle to a physical Vulkan GPU (`VkPhysicalDevice`).
      *
      * @details
@@ -189,11 +201,18 @@ namespace LavaVK {
          */
         [[nodiscard]] SurfaceCapabilities getSurfaceCapabilities(const Surface &surface) const;
 
+        /**
+         * @brief Returns features
+         *
+         */
+        [[nodiscard]] GPUFeatures features() const { return m_features; }
+
     private:
         friend class Device;
 
         VkPhysicalDevice m_device = VK_NULL_HANDLE;
         VkPhysicalDeviceProperties m_properties{};
+        GPUFeatures m_features;
     };
 
     /**
