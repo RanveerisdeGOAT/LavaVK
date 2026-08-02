@@ -2,6 +2,15 @@
 
 All notable changes to LavaVK are documented here.
 
+## [0.12.0-release] — 2026-08-02
+
+> **Development status:** Released
+
+### Added
+* Added dynamic rendering
+
+---
+
 ## [0.14.0-indev] — 2026-08-02
 
 > **Development status:** In development

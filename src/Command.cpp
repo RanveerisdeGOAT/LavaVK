@@ -102,6 +102,20 @@ namespace LavaVK {
         vkCmdEndRenderPass(m_buffer);
     }
 
+    void CommandBuffer::endRendering() const {
+        vkCmdEndRendering(native());
+    }
+
+    void CommandBuffer::beginRendering(RenderingInfo& info) const
+    {
+        VkRenderingInfo renderingInfo = info.native();
+
+        vkCmdBeginRendering(
+            native(),
+            &renderingInfo
+        );
+    }
+
     void CommandBuffer::draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex,
                              uint32_t firstInstance) const {
         vkCmdDraw(m_buffer, vertexCount, instanceCount, firstVertex, firstInstance);

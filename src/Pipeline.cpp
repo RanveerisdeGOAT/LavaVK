@@ -142,8 +142,23 @@ namespace LavaVK {
         if (!info.layout)
             LAVAVK_ERROR("[LavaVK ERROR] PipelineLayout is null.");
 
-        if (!info.renderPass)
-            LAVAVK_ERROR("[LavaVK ERROR] RenderPass is null.");
+        const bool usingRenderPass = info.renderPass != nullptr;
+        const bool usingDynamicRendering =
+            !info.colorFormats.empty() ||
+            info.depthFormat.has_value() ||
+            info.stencilFormat.has_value();
+
+        if (!usingRenderPass && !usingDynamicRendering)
+        {
+            LAVAVK_ERROR(
+                "[LavaVK ERROR] Either a RenderPass or dynamic rendering formats must be provided.");
+        }
+
+        if (usingRenderPass && usingDynamicRendering)
+        {
+            LAVAVK_ERROR(
+                "[LavaVK ERROR] Cannot specify both RenderPass and dynamic rendering.");
+        }
 
         VkPipelineShaderStageCreateInfo shaderStages[2]{};
 
@@ -228,8 +243,18 @@ namespace LavaVK {
         VkPipelineColorBlendStateCreateInfo colorBlending{};
         colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         colorBlending.logicOpEnable = VK_FALSE;
-        colorBlending.attachmentCount = 1;
-        colorBlending.pAttachments = &colorBlendAttachment;
+        std::vector<VkPipelineColorBlendAttachmentState> blendAttachments;
+
+        uint32_t attachmentCount = usingDynamicRendering
+            ? static_cast<uint32_t>(info.colorFormats.size())
+            : 1;
+
+        blendAttachments.resize(attachmentCount, colorBlendAttachment);
+
+        colorBlending.attachmentCount = attachmentCount;
+        colorBlending.attachmentCount = attachmentCount;
+        colorBlending.pAttachments =
+            attachmentCount > 0 ? blendAttachments.data() : nullptr;
 
         std::vector<VkDynamicState> dynamicStates;
         if (info.dynamicViewport)
@@ -242,11 +267,47 @@ namespace LavaVK {
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
         dynamicState.pDynamicStates = dynamicStates.data();
 
+        VkPipelineRenderingCreateInfo renderingInfo{};
+        renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+
+        std::vector<VkFormat> colorFormats;
+
+        if (usingDynamicRendering)
+        {
+            for (const auto& format : info.colorFormats)
+                colorFormats.push_back(format.native());
+
+            renderingInfo.colorAttachmentCount =
+                static_cast<uint32_t>(colorFormats.size());
+
+            renderingInfo.pColorAttachmentFormats =
+                colorFormats.data();
+
+            renderingInfo.depthAttachmentFormat =
+                info.depthFormat
+                    ? info.depthFormat->native()
+                    : VK_FORMAT_UNDEFINED;
+
+            renderingInfo.stencilAttachmentFormat =
+                info.stencilFormat
+                    ? info.stencilFormat->native()
+                    : VK_FORMAT_UNDEFINED;
+        }
+
         VkGraphicsPipelineCreateInfo pipelineInfo{};
-        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+        pipelineInfo.sType =
+            VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+        pipelineInfo.pNext =
+            usingDynamicRendering
+                ? &renderingInfo
+                : nullptr;
+
         pipelineInfo.stageCount = 2;
         pipelineInfo.pStages = shaderStages;
-        pipelineInfo.pVertexInputState = &vertexInput; // Now correctly points to populated vertexInput!
+
+        pipelineInfo.pVertexInputState = &vertexInput;
         pipelineInfo.pInputAssemblyState = &inputAssembly;
         pipelineInfo.pViewportState = &viewportState;
         pipelineInfo.pRasterizationState = &rasterizer;
@@ -255,9 +316,23 @@ namespace LavaVK {
         pipelineInfo.pColorBlendState = &colorBlending;
         pipelineInfo.pDynamicState = &dynamicState;
 
-        pipelineInfo.layout = info.layout->native();
-        pipelineInfo.renderPass = info.renderPass->native();
-        pipelineInfo.subpass = 0;
+        pipelineInfo.layout =
+            info.layout->native();
+
+        if (usingRenderPass)
+        {
+            pipelineInfo.renderPass =
+                info.renderPass->native();
+
+            pipelineInfo.subpass = 0;
+        }
+        else
+        {
+            pipelineInfo.renderPass =
+                VK_NULL_HANDLE;
+
+            pipelineInfo.subpass = 0;
+        }
 
         if (vkCreateGraphicsPipelines(
                 m_device.native(),

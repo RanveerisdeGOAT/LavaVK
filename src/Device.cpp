@@ -75,38 +75,62 @@ namespace LavaVK {
         std::vector<GPUHardware> result;
         result.reserve(count);
 
-        for (auto device: physicalDevices) {
-            VkPhysicalDeviceDescriptorIndexingFeatures indexing{};
-            indexing.sType =
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+        for (VkPhysicalDevice device: physicalDevices) {
+            VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexing{};
+            descriptorIndexing.sType =
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+            VkPhysicalDeviceVulkan13Features vulkan13{};
+            vulkan13.sType =
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+
+            VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddress{};
+            bufferDeviceAddress.sType =
+                    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+
+            descriptorIndexing.pNext = &vulkan13;
+            vulkan13.pNext = &bufferDeviceAddress;
 
             VkPhysicalDeviceFeatures2 features{};
-            features.sType =
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-            features.pNext = &indexing;
+            features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+            features.pNext = &descriptorIndexing;
 
             vkGetPhysicalDeviceFeatures2(device, &features);
+
             result.emplace_back(device);
+
             auto &f = result.back().m_features;
 
+            // Descriptor indexing
             f.descriptorIndexing =
-                indexing.shaderSampledImageArrayNonUniformIndexing &&
-                indexing.runtimeDescriptorArray;
+                    descriptorIndexing.shaderSampledImageArrayNonUniformIndexing &&
+                    descriptorIndexing.runtimeDescriptorArray;
 
             f.nonUniformIndexing =
-                indexing.shaderSampledImageArrayNonUniformIndexing;
+                    descriptorIndexing.shaderSampledImageArrayNonUniformIndexing;
 
             f.runtimeDescriptorArray =
-                indexing.runtimeDescriptorArray;
+                    descriptorIndexing.runtimeDescriptorArray;
 
             f.partiallyBound =
-                indexing.descriptorBindingPartiallyBound;
+                    descriptorIndexing.descriptorBindingPartiallyBound;
 
             f.variableDescriptorCount =
-                indexing.descriptorBindingVariableDescriptorCount;
+                    descriptorIndexing.descriptorBindingVariableDescriptorCount;
 
             f.updateAfterBind =
-                indexing.descriptorBindingSampledImageUpdateAfterBind;
+                    descriptorIndexing.descriptorBindingSampledImageUpdateAfterBind;
+
+            // Vulkan 1.3
+            f.dynamicRendering =
+                    vulkan13.dynamicRendering;
+
+            f.synchronization2 =
+                    vulkan13.synchronization2;
+
+            // Optional
+            f.bufferDeviceAddress =
+                    bufferDeviceAddress.bufferDeviceAddress;
         }
 
         return result;
@@ -287,64 +311,108 @@ namespace LavaVK {
 
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+        createInfo.queueCreateInfoCount =
+                static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
         std::vector<const char *> extensions;
+
         if (surface != nullptr) {
             extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
         }
 
-        // Query which device extensions are actually available so we don't
-        // request one a driver doesn't (separately) advertise, e.g. on
-        // implementations where VK_EXT_descriptor_indexing has been folded
-        // into core Vulkan 1.2 and isn't listed on its own.
+        // Query available device extensions
         uint32_t availableExtensionCount = 0;
-        vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &availableExtensionCount, nullptr);
+        vkEnumerateDeviceExtensionProperties(
+            m_physicalDevice,
+            nullptr,
+            &availableExtensionCount,
+            nullptr
+        );
 
         std::vector<VkExtensionProperties> availableExtensions(availableExtensionCount);
-        vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &availableExtensionCount,
-                                             availableExtensions.data());
+
+        vkEnumerateDeviceExtensionProperties(
+            m_physicalDevice,
+            nullptr,
+            &availableExtensionCount,
+            availableExtensions.data()
+        );
 
         const auto isExtensionAvailable = [&](const char *name) {
-            return std::any_of(availableExtensions.begin(), availableExtensions.end(),
-                               [&](const VkExtensionProperties &ext) {
-                                   return std::strcmp(ext.extensionName, name) == 0;
-                               });
+            return std::any_of(
+                availableExtensions.begin(),
+                availableExtensions.end(),
+                [&](const VkExtensionProperties &ext) {
+                    return std::strcmp(ext.extensionName, name) == 0;
+                }
+            );
         };
 
         const GPUFeatures &gpuFeatures = gpu_hardware.features();
 
-        // Only enable descriptor indexing (and only the specific sub-features)
-        // the physical device actually reported support for; this is what
-        // BindlessTextureSet's large partially-bound sampler array relies on
-        // (in particular shaderSampledImageArrayNonUniformIndexing, required
-        // for `nonuniformEXT` indexing in shaders).
         VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
-        descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+        descriptorIndexingFeatures.sType =
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
         descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing =
                 gpuFeatures.nonUniformIndexing ? VK_TRUE : VK_FALSE;
+
         descriptorIndexingFeatures.runtimeDescriptorArray =
                 gpuFeatures.runtimeDescriptorArray ? VK_TRUE : VK_FALSE;
+
         descriptorIndexingFeatures.descriptorBindingPartiallyBound =
                 gpuFeatures.partiallyBound ? VK_TRUE : VK_FALSE;
+
         descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount =
                 gpuFeatures.variableDescriptorCount ? VK_TRUE : VK_FALSE;
+
         descriptorIndexingFeatures.descriptorBindingSampledImageUpdateAfterBind =
                 gpuFeatures.updateAfterBind ? VK_TRUE : VK_FALSE;
 
-        if (gpuFeatures.descriptorIndexing && isExtensionAvailable(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)) {
-            extensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
-            createInfo.pNext = &descriptorIndexingFeatures;
+        VkPhysicalDeviceVulkan13Features vulkan13Features{};
+        vulkan13Features.sType =
+                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+
+        vulkan13Features.dynamicRendering =
+                gpuFeatures.dynamicRendering ? VK_TRUE : VK_FALSE;
+
+        vulkan13Features.synchronization2 =
+                gpuFeatures.synchronization2 ? VK_TRUE : VK_FALSE;
+
+        void *featureChain = nullptr;
+
+        if (gpuFeatures.dynamicRendering || gpuFeatures.synchronization2) {
+            vulkan13Features.pNext = featureChain;
+            featureChain = &vulkan13Features;
         }
 
-        createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-        createInfo.ppEnabledExtensionNames = extensions.data();
+        if (gpuFeatures.descriptorIndexing) {
+            descriptorIndexingFeatures.pNext = featureChain;
+            featureChain = &descriptorIndexingFeatures;
 
-        if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) != VK_SUCCESS) {
+            // Only add extension if it is actually needed.
+            // Vulkan 1.2+ exposes descriptor indexing as core.
+            if (isExtensionAvailable(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME)) {
+                extensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+            }
+        }
+
+        createInfo.pNext = featureChain;
+
+        createInfo.enabledExtensionCount =
+                static_cast<uint32_t>(extensions.size());
+
+        createInfo.ppEnabledExtensionNames =
+                extensions.data();
+
+        if (vkCreateDevice(
+                m_physicalDevice,
+                &createInfo,
+                nullptr,
+                &m_device) != VK_SUCCESS) {
             LAVAVK_ERROR("[LavaVK ERROR] Failed to create logical device.");
         }
-
         for (auto type: requestedQueues) {
             m_queues[type] = Queue(*this, m_queueFamilies[type]);
         }

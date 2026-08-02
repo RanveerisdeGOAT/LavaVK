@@ -52,7 +52,7 @@ namespace LavaVK {
     SwapChain::SwapChain(
         Device &device,
         Surface &surface,
-        RenderPass &renderPass,
+        RenderPass *renderPass,
         VkFormat colorFormat,
         VkFormat depthFormat,
         VkExtent2D extent)
@@ -70,14 +70,36 @@ namespace LavaVK {
             m_inFlightFences.emplace_back(m_device, true); // Create signaled
         }
 
-        create();
+        createPassed();
+    }
+
+    SwapChain::SwapChain(
+        Device &device,
+        Surface &surface,
+        VkFormat colorFormat,
+        VkFormat depthFormat,
+        VkExtent2D extent)
+        : m_device(device),
+          m_surface(surface),
+          m_colorFormat(colorFormat),
+          m_depthFormat(depthFormat),
+          m_extent(extent) {
+        m_imageAvailable.reserve(MAX_FRAMES_IN_FLIGHT);
+        m_inFlightFences.reserve(MAX_FRAMES_IN_FLIGHT);
+
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            m_imageAvailable.emplace_back(m_device);
+            m_inFlightFences.emplace_back(m_device, true);
+        }
+
+        createDynamic();
     }
 
     SwapChain::~SwapChain() {
         cleanup();
     }
 
-    void SwapChain::create() {
+    void SwapChain::createPassed() {
         VkPhysicalDevice physicalDevice = m_device.physical();
         VkSurfaceKHR surfaceHandle = m_surface.native();
 
@@ -181,8 +203,228 @@ namespace LavaVK {
         m_framebuffers.reserve(m_images.size());
         for (size_t i = 0; i < m_images.size(); i++) {
             std::vector<Image *> attachments = {&m_images[i], m_depthImage.get()};
-            m_framebuffers.emplace_back(m_device, m_renderPass, attachments);
+            m_framebuffers.emplace_back(m_device, *m_renderPass, attachments);
         }
+    }
+
+    void SwapChain::createDynamic() {
+        VkPhysicalDevice physicalDevice = m_device.physical();
+        VkSurfaceKHR surfaceHandle = m_surface.native();
+
+        VkSurfaceCapabilitiesKHR capabilities{};
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+            physicalDevice,
+            surfaceHandle,
+            &capabilities
+        );
+
+        uint32_t formatCount = 0;
+
+        vkGetPhysicalDeviceSurfaceFormatsKHR(
+            physicalDevice,
+            surfaceHandle,
+            &formatCount,
+            nullptr
+        );
+
+        std::vector<VkSurfaceFormatKHR> formats(formatCount);
+
+        vkGetPhysicalDeviceSurfaceFormatsKHR(
+            physicalDevice,
+            surfaceHandle,
+            &formatCount,
+            formats.data()
+        );
+
+        uint32_t presentModeCount = 0;
+
+        vkGetPhysicalDeviceSurfacePresentModesKHR(
+            physicalDevice,
+            surfaceHandle,
+            &presentModeCount,
+            nullptr
+        );
+
+        std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+
+        vkGetPhysicalDeviceSurfacePresentModesKHR(
+            physicalDevice,
+            surfaceHandle,
+            &presentModeCount,
+            presentModes.data()
+        );
+
+
+        VkSurfaceFormatKHR surfaceFormat =
+                chooseSwapSurfaceFormat(formats, m_colorFormat);
+
+        VkPresentModeKHR presentMode =
+                chooseSwapPresentMode(presentModes);
+
+        VkExtent2D swapExtent =
+                chooseSwapExtent(capabilities, m_extent);
+
+
+        m_format = surfaceFormat.format;
+        m_extent = swapExtent;
+
+        uint32_t imageCount = capabilities.minImageCount + 1;
+
+        if (capabilities.maxImageCount > 0 &&
+            imageCount > capabilities.maxImageCount) {
+            imageCount = capabilities.maxImageCount;
+        }
+
+
+        VkSwapchainCreateInfoKHR createInfo{};
+        createInfo.sType =
+                VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+
+        createInfo.surface = surfaceHandle;
+
+        createInfo.minImageCount = imageCount;
+
+        createInfo.imageFormat = surfaceFormat.format;
+        createInfo.imageColorSpace = surfaceFormat.colorSpace;
+
+        createInfo.imageExtent = swapExtent;
+
+        createInfo.imageArrayLayers = 1;
+
+
+        // Dynamic rendering uses color attachments directly
+        createInfo.imageUsage =
+                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+
+        uint32_t graphicsQueueIndex =
+                m_device.getQueueFamily(QueueType::GRAPHICS);
+
+        uint32_t presentQueueIndex =
+                m_device.getQueueFamily(QueueType::PRESENT);
+
+
+        uint32_t queueFamilyIndices[] =
+        {
+            graphicsQueueIndex,
+            presentQueueIndex
+        };
+
+
+        if (graphicsQueueIndex != presentQueueIndex) {
+            createInfo.imageSharingMode =
+                    VK_SHARING_MODE_CONCURRENT;
+
+            createInfo.queueFamilyIndexCount = 2;
+            createInfo.pQueueFamilyIndices = queueFamilyIndices;
+        } else {
+            createInfo.imageSharingMode =
+                    VK_SHARING_MODE_EXCLUSIVE;
+        }
+
+
+        createInfo.preTransform =
+                capabilities.currentTransform;
+
+        createInfo.compositeAlpha =
+                VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+
+        createInfo.presentMode =
+                presentMode;
+
+        createInfo.clipped = VK_TRUE;
+
+
+        if (vkCreateSwapchainKHR(
+                m_device.native(),
+                &createInfo,
+                nullptr,
+                &m_swapchain) != VK_SUCCESS) {
+            LAVAVK_ERROR(
+                "[LavaVK ERROR] Failed to create Vulkan swapchain."
+            );
+        }
+
+        uint32_t rawImageCount = 0;
+
+        vkGetSwapchainImagesKHR(
+            m_device.native(),
+            m_swapchain,
+            &rawImageCount,
+            nullptr
+        );
+
+
+        std::vector<VkImage> rawImages(rawImageCount);
+
+
+        vkGetSwapchainImagesKHR(
+            m_device.native(),
+            m_swapchain,
+            &rawImageCount,
+            rawImages.data()
+        );
+
+
+        m_images.clear();
+        m_images.reserve(rawImageCount);
+
+
+        VkExtent3D imageExtent{
+            m_extent.width,
+            m_extent.height,
+            1
+        };
+
+
+        for (VkImage image: rawImages) {
+            m_images.emplace_back(
+                m_device,
+                image,
+                m_format,
+                VK_IMAGE_ASPECT_COLOR_BIT,
+                imageExtent
+            );
+        }
+
+        m_renderFinished.clear();
+        m_renderFinished.reserve(rawImageCount);
+
+        for (size_t i = 0; i < rawImageCount; i++) {
+            m_renderFinished.emplace_back(m_device);
+        }
+
+
+        m_imagesInFlight.assign(
+            rawImageCount,
+            VK_NULL_HANDLE
+        );
+
+        m_depthImage = std::make_unique<Image>(
+            m_device,
+            ImageCreateInfo{
+                .type = ImageType::IMAGE_2D,
+
+                .extent = {
+                    m_extent.width,
+                    m_extent.height,
+                    1
+                },
+
+                .format = m_depthFormat,
+
+                .usage = ImageUsage::DEPTH_ATTACHMENT,
+
+                .aspect = VK_IMAGE_ASPECT_DEPTH_BIT,
+
+                .samples = VK_SAMPLE_COUNT_1_BIT,
+
+                .tiling = VK_IMAGE_TILING_OPTIMAL,
+
+                .memory =
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+            }
+        );
     }
 
     void SwapChain::cleanup() {
@@ -202,7 +444,7 @@ namespace LavaVK {
         }
     }
 
-    void SwapChain::recreate() {
+    void SwapChain::recreate(bool passed) {
         VkExtent2D newExtent = getLatestExtent();
 
         // Handle Minimization: If width or height is 0, pause execution until un-minimized
@@ -219,7 +461,8 @@ namespace LavaVK {
         m_extent = newExtent;
 
         // Re-create swapchain resources with updated extent
-        create();
+        if (passed) createPassed();
+        else createDynamic();
     }
 
     VkExtent2D SwapChain::getLatestExtent() const {

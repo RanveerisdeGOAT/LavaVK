@@ -50,6 +50,9 @@ namespace LavaVK {
         bool variableDescriptorCount = false;
         bool nonUniformIndexing = false;
         bool updateAfterBind = false;
+        bool dynamicRendering = false;
+        bool synchronization2 = false;
+        bool bufferDeviceAddress = false;
     };
 
     /**

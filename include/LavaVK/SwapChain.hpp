@@ -43,10 +43,19 @@ namespace LavaVK {
          * @param depthFormat Preferred depth attachment format.
          * @param extent Desired width and height of the swapchain images in pixels.
          */
+
+
         SwapChain(
             Device &device,
             Surface &surface,
-            RenderPass &renderPass,
+            RenderPass* renderPass,
+            VkFormat colorFormat,
+            VkFormat depthFormat,
+            VkExtent2D extent);
+
+        SwapChain(
+            Device& device,
+            Surface& surface,
             VkFormat colorFormat,
             VkFormat depthFormat,
             VkExtent2D extent);
@@ -117,6 +126,20 @@ namespace LavaVK {
          */
         [[nodiscard]] Image &image(uint32_t index) {
             return m_images[index];
+        }
+
+        /**
+         * @brief Retrieves a const reference to a wrapped swapchain depth image.
+         */
+        [[nodiscard]] const Image &depth() const {
+            return *m_depthImage;
+        }
+
+        /**
+         * @brief Retrieves a mutable reference to a wrapped swapchain depth image.e.
+         */
+        [[nodiscard]] Image &depth() {
+            return *m_depthImage;
         }
 
         /**
@@ -207,7 +230,7 @@ namespace LavaVK {
         /**
          * @brief Recreates the swapchain when the window size or surface capabilities change.
          */
-        void recreate();
+        void recreate(bool passed = true);
 
         /**
          * @brief Queries the latest surface extent directly from Vulkan.
@@ -218,7 +241,9 @@ namespace LavaVK {
         /**
          * @brief Allocates and initializes native VkSwapchainKHR, images, views, depth attachment, and framebuffers.
          */
-        void create();
+        void createPassed();
+
+        void createDynamic();
 
         /**
          * @brief Destroys framebuffers, depth attachment, image views, and native swapchain handles.
@@ -227,7 +252,7 @@ namespace LavaVK {
 
         Device &m_device; ///< Reference to logical device wrapper.
         Surface &m_surface; ///< Reference to presentation surface wrapper.
-        RenderPass &m_renderPass; ///< Reference to render pass used to build framebuffers.
+        RenderPass *m_renderPass; ///< Pointer to render pass used to build framebuffers.
 
         VkSwapchainKHR m_swapchain = VK_NULL_HANDLE; ///< Native Vulkan swapchain handle.
 

@@ -9,6 +9,7 @@
 #include <fstream>
 #include <array>
 #include <filesystem>
+#include <optional>
 #include <shaderc/shaderc.hpp>
 
 #include "Core.hpp"
@@ -168,12 +169,17 @@ namespace LavaVK {
         LINES = VK_PRIMITIVE_TOPOLOGY_LINE_LIST, /**< Each pair of vertices forms an independent line. */
         LINE_STRIP = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP, /**< Consecutive vertices form a connected line strip. */
         TRIANGLES = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, /**< Each triplet of vertices forms an independent triangle. */
-        TRIANGLE_STRIP = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, /**< Consecutive vertices form a connected triangle strip. */
+        TRIANGLE_STRIP = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
+        /**< Consecutive vertices form a connected triangle strip. */
         TRIANGLE_FAN = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN, /**< Vertices form a triangle fan around the first vertex. */
-        LINE_LIST_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY, /**< Line list with adjacency information, for geometry shaders. */
-        LINE_STRIP_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY, /**< Line strip with adjacency information, for geometry shaders. */
-        TRIANGLE_LIST_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY, /**< Triangle list with adjacency information, for geometry shaders. */
-        TRIANGLE_STRIP_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY, /**< Triangle strip with adjacency information, for geometry shaders. */
+        LINE_LIST_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY,
+        /**< Line list with adjacency information, for geometry shaders. */
+        LINE_STRIP_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY,
+        /**< Line strip with adjacency information, for geometry shaders. */
+        TRIANGLE_LIST_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY,
+        /**< Triangle list with adjacency information, for geometry shaders. */
+        TRIANGLE_STRIP_ADJACENCY = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY,
+        /**< Triangle strip with adjacency information, for geometry shaders. */
         PATCHES = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST /**< Vertices form patches, for tessellation. */
     };
 
@@ -194,7 +200,8 @@ namespace LavaVK {
 
     /** @brief Vertex winding order determining front-facing polygons, mirroring `VkFrontFace`. */
     enum class FrontFace : uint32_t {
-        COUNTER_CLOCKWISE = VK_FRONT_FACE_COUNTER_CLOCKWISE, /**< Counter-clockwise winding is considered front-facing. */
+        COUNTER_CLOCKWISE = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        /**< Counter-clockwise winding is considered front-facing. */
         CLOCKWISE = VK_FRONT_FACE_CLOCKWISE /**< Clockwise winding is considered front-facing. */
     };
 
@@ -203,10 +210,12 @@ namespace LavaVK {
         NEVER = VK_COMPARE_OP_NEVER, /**< Comparison always fails. */
         LESS = VK_COMPARE_OP_LESS, /**< Passes if the new value is less than the stored value. */
         EQUAL = VK_COMPARE_OP_EQUAL, /**< Passes if the new value equals the stored value. */
-        LESS_OR_EQUAL = VK_COMPARE_OP_LESS_OR_EQUAL, /**< Passes if the new value is less than or equal to the stored value. */
+        LESS_OR_EQUAL = VK_COMPARE_OP_LESS_OR_EQUAL,
+        /**< Passes if the new value is less than or equal to the stored value. */
         GREATER = VK_COMPARE_OP_GREATER, /**< Passes if the new value is greater than the stored value. */
         NOT_EQUAL = VK_COMPARE_OP_NOT_EQUAL, /**< Passes if the new value does not equal the stored value. */
-        GREATER_OR_EQUAL = VK_COMPARE_OP_GREATER_OR_EQUAL, /**< Passes if the new value is greater than or equal to the stored value. */
+        GREATER_OR_EQUAL = VK_COMPARE_OP_GREATER_OR_EQUAL,
+        /**< Passes if the new value is greater than or equal to the stored value. */
         ALWAYS = VK_COMPARE_OP_ALWAYS /**< Comparison always passes. */
     };
 
@@ -241,8 +250,16 @@ namespace LavaVK {
         Shader *fragmentShader = nullptr; /**< Required fragment shader stage */
 
         PipelineLayout *layout = nullptr; /**< Required pipeline layout configuration */
-        RenderPass *renderPass = nullptr; /**< Compatible render pass */
-        VertexLayout *vertexLayout = nullptr; /**< Vertex input binding/attribute layout; leave `nullptr` for pipelines with no vertex input. */
+        // Traditional rendering
+        RenderPass *renderPass = nullptr;
+
+        // Dynamic rendering
+        std::vector<Format> colorFormats;
+        std::optional<Format> depthFormat;
+        std::optional<Format> stencilFormat;
+
+        VertexLayout *vertexLayout = nullptr;
+        /**< Vertex input binding/attribute layout; leave `nullptr` for pipelines with no vertex input. */
 
         Topology topology = Topology::TRIANGLES; /**< Primitive topology type */
 
@@ -368,13 +385,18 @@ namespace LavaVK {
         DrawIndirect = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, /**< Indirect draw/dispatch command reads. */
         VertexInput = VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, /**< Vertex/index buffer reads. */
         VertexShader = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, /**< Vertex shader execution. */
-        TessellationControl = VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT, /**< Tessellation control shader execution. */
-        TessellationEvaluation = VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT, /**< Tessellation evaluation shader execution. */
+        TessellationControl = VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT,
+        /**< Tessellation control shader execution. */
+        TessellationEvaluation = VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT,
+        /**< Tessellation evaluation shader execution. */
         GeometryShader = VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT, /**< Geometry shader execution. */
         FragmentShader = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, /**< Fragment shader execution. */
-        EarlyFragmentTests = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, /**< Depth/stencil tests before fragment shading. */
-        LateFragmentTests = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, /**< Depth/stencil tests after fragment shading. */
-        ColorAttachmentOutput = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, /**< Color attachment writes; the typical wait stage for swapchain image availability. */
+        EarlyFragmentTests = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+        /**< Depth/stencil tests before fragment shading. */
+        LateFragmentTests = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+        /**< Depth/stencil tests after fragment shading. */
+        ColorAttachmentOutput = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        /**< Color attachment writes; the typical wait stage for swapchain image availability. */
         ComputeShader = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, /**< Compute shader execution. */
         Transfer = VK_PIPELINE_STAGE_TRANSFER_BIT, /**< Copy/blit/clear transfer commands. */
         BottomOfPipe = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, /**< The very end of the pipeline. */
@@ -399,7 +421,7 @@ namespace LavaVK {
      * @brief Selects which pipeline type a bind point operation (e.g. descriptor
      * set binding) applies to, mirroring `VkPipelineBindPoint`.
      */
-    enum class PipelineBindPoint{
+    enum class PipelineBindPoint {
         Graphics = VK_PIPELINE_BIND_POINT_GRAPHICS, /**< Binds to the graphics pipeline bind point. */
         Compute = VK_PIPELINE_BIND_POINT_COMPUTE, /**< Binds to the compute pipeline bind point. */
     };
@@ -451,15 +473,16 @@ namespace LavaVK {
         ~ComputePipeline();
 
         // Non-copyable
-        ComputePipeline(const ComputePipeline&) = delete;
-        ComputePipeline& operator=(const ComputePipeline&) = delete;
+        ComputePipeline(const ComputePipeline &) = delete;
+
+        ComputePipeline &operator=(const ComputePipeline &) = delete;
 
         // Moveable
         /**
          * @brief Move constructor. Transfers ownership of the underlying `VkPipeline`.
          * @param other The pipeline being moved from; left in an empty, destructible state.
          */
-        ComputePipeline(ComputePipeline&& other) noexcept;
+        ComputePipeline(ComputePipeline &&other) noexcept;
 
         /**
          * @brief Move assignment operator. Destroys any currently owned pipeline
@@ -467,7 +490,7 @@ namespace LavaVK {
          * @param other The pipeline being moved from; left in an empty, destructible state.
          * @return Reference to this pipeline.
          */
-        ComputePipeline& operator=(ComputePipeline&& other) noexcept;
+        ComputePipeline &operator=(ComputePipeline &&other) noexcept;
 
         /**
          * @brief Binds this compute pipeline to a command buffer (`vkCmdBindPipeline`).
@@ -483,9 +506,136 @@ namespace LavaVK {
         VkPipeline native() const {
             return m_pipeline;
         }
+
     private:
         Device &m_device;
         VkPipeline m_pipeline = VK_NULL_HANDLE;
+    };
+
+    struct ClearValue {
+        VkClearValue value{};
+
+        static ClearValue color(float r, float g, float b, float a) {
+            ClearValue clear;
+            clear.value.color = {{r, g, b, a}};
+            return clear;
+        }
+
+        static ClearValue depth(float depth = 1.0f, uint32_t stencil = 0) {
+            ClearValue clear;
+            clear.value.depthStencil = {depth, stencil};
+            return clear;
+        }
+    };
+
+    enum class AttachmentLoadOp {
+        LOAD = VK_ATTACHMENT_LOAD_OP_LOAD,
+        CLEAR = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        DONT_CARE = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        NONE = VK_ATTACHMENT_LOAD_OP_NONE,
+        NONE_EXT = VK_ATTACHMENT_LOAD_OP_NONE_EXT,
+        NONE_KHR = VK_ATTACHMENT_LOAD_OP_NONE_KHR,
+        MAX_ENUM = VK_ATTACHMENT_LOAD_OP_MAX_ENUM
+    };
+
+    enum class AttachmentStoreOp {
+        STORE = VK_ATTACHMENT_STORE_OP_STORE,
+        DONT_CARE = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        NONE = VK_ATTACHMENT_STORE_OP_NONE,
+        NONE_KHR = VK_ATTACHMENT_STORE_OP_NONE_KHR,
+        NONE_QCOM = VK_ATTACHMENT_STORE_OP_NONE_QCOM,
+        NONE_EXT = VK_ATTACHMENT_STORE_OP_NONE_EXT,
+        MAX_ENUM = VK_ATTACHMENT_STORE_OP_MAX_ENUM
+    };
+
+    struct RenderingAttachmentInfo {
+        Image *image = nullptr;
+
+        ImageLayout layout = ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
+
+        AttachmentLoadOp loadOp = AttachmentLoadOp::CLEAR;
+        AttachmentStoreOp storeOp = AttachmentStoreOp::STORE;
+
+        ClearValue clearValue{};
+    };
+
+    struct RenderingInfo {
+        VkRect2D renderArea{};
+
+        uint32_t layerCount = 1;
+        uint32_t viewMask = 0;
+
+        std::vector<RenderingAttachmentInfo> colorAttachments;
+
+        std::optional<RenderingAttachmentInfo> depthAttachment;
+        std::optional<RenderingAttachmentInfo> stencilAttachment;
+
+
+        std::vector<VkRenderingAttachmentInfo> vkColorAttachments;
+        VkRenderingAttachmentInfo vkDepthAttachment{};
+        VkRenderingAttachmentInfo vkStencilAttachment{};
+
+
+        VkRenderingInfo native() {
+            vkColorAttachments.clear();
+
+            for (const auto &attachment: colorAttachments) {
+                vkColorAttachments.push_back({
+                    .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                    .imageView = attachment.image->view(),
+                    .imageLayout = static_cast<VkImageLayout>(attachment.layout),
+                    .loadOp = static_cast<VkAttachmentLoadOp>(attachment.loadOp),
+                    .storeOp = static_cast<VkAttachmentStoreOp>(attachment.storeOp),
+                    .clearValue = attachment.clearValue.value
+                });
+            }
+
+
+            if (depthAttachment) {
+                vkDepthAttachment = {
+                    .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                    .imageView = depthAttachment->image->view(),
+                    .imageLayout = static_cast<VkImageLayout>(depthAttachment->layout),
+                    .loadOp = static_cast<VkAttachmentLoadOp>(depthAttachment->loadOp),
+                    .storeOp = static_cast<VkAttachmentStoreOp>(depthAttachment->storeOp),
+                    .clearValue = depthAttachment->clearValue.value
+                };
+            }
+
+
+            if (stencilAttachment) {
+                vkStencilAttachment = {
+                    .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                    .imageView = stencilAttachment->image->view(),
+                    .imageLayout = static_cast<VkImageLayout>(stencilAttachment->layout),
+                    .loadOp = static_cast<VkAttachmentLoadOp>(stencilAttachment->loadOp),
+                    .storeOp = static_cast<VkAttachmentStoreOp>(stencilAttachment->storeOp),
+                    .clearValue = stencilAttachment->clearValue.value
+                };
+            }
+
+
+            return {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .renderArea = renderArea,
+                .layerCount = layerCount,
+                .viewMask = viewMask,
+
+                .colorAttachmentCount =
+                static_cast<uint32_t>(vkColorAttachments.size()),
+
+                .pColorAttachments =
+                vkColorAttachments.data(),
+
+                .pDepthAttachment =
+                depthAttachment ? &vkDepthAttachment : nullptr,
+
+                .pStencilAttachment =
+                stencilAttachment ? &vkStencilAttachment : nullptr
+            };
+        }
     };
 
 

@@ -256,6 +256,16 @@ namespace LavaVK {
          */
         [[nodiscard]] bool ownsImage() const { return m_ownsImage; }
 
+        ImageLayout layout() const
+        {
+            return m_layout;
+        }
+
+        void setLayout(ImageLayout layout)
+        {
+            m_layout = layout;
+        }
+
     private:
         Device *m_device = nullptr;
         VkImage m_image = VK_NULL_HANDLE;
@@ -264,6 +274,7 @@ namespace LavaVK {
         VkExtent3D m_extent{};
         VkFormat m_format = VK_FORMAT_UNDEFINED;
         bool m_ownsImage = true;
+        ImageLayout m_layout = ImageLayout::UNDEFINED;
     };
 
     /** @brief Border color used by a sampler for `CLAMP_TO_BORDER` address modes, mirroring `VkBorderColor`. */

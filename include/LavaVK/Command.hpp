@@ -203,6 +203,10 @@ namespace LavaVK {
          */
         void endRenderPass() const;
 
+        void endRendering() const;
+
+        void beginRendering(RenderingInfo& info) const;
+
         /**
          * @brief Records a non-indexed draw command.
          * @param vertexCount Number of vertices to draw.
