@@ -16,7 +16,7 @@ namespace LavaVK {
         std::string applicationName = "Application";
 
         /** @brief The version of the application encoded via VK_MAKE_VERSION. */
-        uint32_t applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+        uint32_t applicationVersion = VK_MAKE_VERSION(1, 0, 1);
 
         /** @brief Enables Khronos Vulkan validation layers in non-release builds (`#ifndef NDEBUG`). */
         bool enableValidation = true;

@@ -131,6 +131,7 @@ namespace LavaVK {
      */
     class Surface {
     public:
+        Surface() = default;
         /**
          * @brief Constructs a Surface object by invoking a surface creator delegate.
          *

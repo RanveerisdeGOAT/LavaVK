@@ -2,7 +2,16 @@
 
 All notable changes to LavaVK are documented here.
 
-## [0.12.0-release] — 2026-08-02
+## [1.0.1-release] — 2026-08-03
+
+> **Development status:** Released
+
+### Fixed
+* Added default constructors to Surface and Device.
+
+---
+
+## [1.0.0-release] — 2026-08-02
 
 > **Development status:** Released
 

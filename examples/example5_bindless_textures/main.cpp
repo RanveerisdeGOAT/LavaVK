@@ -299,8 +299,8 @@ int main() {
         LavaVK::Format(LavaVK::ChannelOrder::D, LavaVK::BitDepth::B32, LavaVK::NumericType::Float)
     );
 
-    LavaVK::Shader vertexShader(device, "../shader/tri.vert");
-    LavaVK::Shader fragmentShader(device, "../shader/tri.frag");
+    LavaVK::Shader vertexShader(device, "../shader/main.vert");
+    LavaVK::Shader fragmentShader(device, "../shader/main.frag");
 
     LavaVK::GraphicsPipeline pipeline(
         device,

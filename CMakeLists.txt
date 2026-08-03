@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(LavaVK
-        VERSION 1.0.0
+        VERSION 1.0.1
         LANGUAGES CXX
 )
 
@@ -11,9 +11,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Vulkan
 find_package(Vulkan REQUIRED)
 
-# GLM
-set(GLM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-add_subdirectory(external/glm/glm)
 
 # LavaVK
 

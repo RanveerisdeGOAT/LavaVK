@@ -74,8 +74,8 @@ int main() {
 
     // Note: If your using glsl, you don't need to compile to SPIR-V
     // because LavaVK automatically compiles it you you.
-    LavaVK::Shader vertexShader(device, "shader/tri.vert");
-    LavaVK::Shader fragmentShader(device, "shader/tri.frag");
+    LavaVK::Shader vertexShader(device, "shader/main.vert");
+    LavaVK::Shader fragmentShader(device, "shader/main.frag");
 
     LavaVK::GraphicsPipeline pipeline(
         device,

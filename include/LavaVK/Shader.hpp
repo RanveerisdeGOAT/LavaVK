@@ -71,13 +71,13 @@ namespace LavaVK {
      *
      * Example, compiling GLSL source on load:
      * @code
-     * LavaVK::Shader vertexShader(device, "shaders/tri.vert");
-     * LavaVK::Shader fragmentShader(device, "shaders/tri.frag");
+     * LavaVK::Shader vertexShader(device, "shaders/main.vert");
+     * LavaVK::Shader fragmentShader(device, "shaders/main.frag");
      * @endcode
      *
      * Example, loading precompiled SPIR-V words directly:
      * @code
-     * std::vector<uint32_t> spirv = loadSpirvWords("shaders/tri.vert.spv");
+     * std::vector<uint32_t> spirv = loadSpirvWords("shaders/main.vert.spv");
      * LavaVK::Shader vertexShader(device, spirv);
      * @endcode
      */

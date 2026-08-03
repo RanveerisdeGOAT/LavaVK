@@ -251,6 +251,7 @@ namespace LavaVK {
      */
     class Device {
     public:
+        Device() = default;
         /**
          * @brief Constructs a LavaVK Device, selecting a physical GPU and creating a logical device.
          * @details Creates the `VkDevice` from @p gpu_hardware with one queue
